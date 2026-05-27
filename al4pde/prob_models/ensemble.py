@@ -22,7 +22,7 @@ class Ensemble(ProbModel):
         super().__init__(task,  b0.training_type, b0.t_train, b0.batch_size, b0.val_period, b0.vis_period, b0.loss)
         self.base_models = nn.ModuleList(base_models)
         self.unc_roll_out_mode = unc_roll_out_mode
-        assert unc_roll_out_mode in ["mean", "independent", "pino"]
+        assert unc_roll_out_mode in ["mean", "independent", "pino", "direct"]
         self.synchronized_training = synchronized_training
         self.adapt_unc_to_loss = adapt_unc_to_loss
         self.first_model_prediction = first_model_prediction
@@ -91,7 +91,9 @@ class Ensemble(ProbModel):
         return {"pred": pred, "onestep_pred": onestep_pred, "yy": yy, "param": param, "unc": unc}
 
     def unc_roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
-        if self.unc_roll_out_mode == "independent":
+        if self.unc_roll_out_mode == "direct":
+            return self.unc_direct_trajectory(xx, grid, final_step, pde_param, t_idx, return_features)
+        elif self.unc_roll_out_mode == "independent":
             return self.unc_independent_rollout(xx, grid, final_step, pde_param, t_idx, return_features)
         elif self.unc_roll_out_mode == "mean":
             if return_features:
@@ -135,6 +137,41 @@ class Ensemble(ProbModel):
 
         return mean_traj, unc_traj
 
+    def unc_direct_trajectory(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
+        """Estimate ensemble uncertainty for models that predict full trajectories directly.
+
+        Direct mode calls each base model once and assumes each forward pass returns
+        [batch, spatial..., time, channels]. It does not autoregressively feed
+        predictions back into the model.
+        """
+        if return_features:
+            b_m_out = [b(xx, grid, pde_param, t_idx, return_features) for b in self.base_models]
+            outputs = [o[0] for o in b_m_out]
+            features = torch.concat([o[1] for o in b_m_out], dim=-1)
+        else:
+            outputs = [b(xx, grid, pde_param, t_idx, return_features) for b in self.base_models]
+            features = None
+
+        # Direct model outputs are expected to use [..., time, channels], where
+        # final_step is the requested trajectory horizon supplied by callers.
+        outputs = [o[..., :final_step, :] if o.shape[-2] > final_step else o for o in outputs]
+        traj = torch.stack(outputs, dim=0)
+        mean_traj = torch.mean(traj, dim=0)
+        if self.adapt_unc_to_loss:
+            estimated_losses = []
+            for t in traj:
+                estimated_losses.append(self.loss(t, mean_traj, reduction=None, initial_step=0))
+            unc_traj = torch.stack(estimated_losses, 0).mean(0)
+        else:
+            unc_traj = torch.var(traj, dim=0)
+
+        if self.first_model_prediction:
+            mean_traj = traj[0]
+        if return_features:
+            return mean_traj, unc_traj, features
+
+        return mean_traj, unc_traj
+
     def unc_mean_propagation_rollout(self, xx, grid, final_step, pde_param=None, t_idx=None):
         raise NotImplementedError() # does not deal with first model and different losses yet
         #return super().unc_roll_out(xx, grid, final_step, pde_param)
@@ -172,5 +209,6 @@ class Ensemble(ProbModel):
 def build_ensemble(task, cfg):
     base_models = [build_wrapper(task, cfg.model_wrapper, name="ens_member_" + str(i))
                    for i in range(cfg.num_models_ensemble)]
-    return Ensemble(task, cfg.unc_roll_out_mode, base_models, cfg.synchronized_training, first_model_prediction=
-                    cfg.first_model_prediction)
+    return Ensemble(task, cfg.unc_roll_out_mode, base_models, cfg.synchronized_training,
+                    adapt_unc_to_loss=cfg.get("adapt_unc_to_loss", True),
+                    first_model_prediction=cfg.first_model_prediction)
