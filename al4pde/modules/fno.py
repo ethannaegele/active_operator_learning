@@ -30,6 +30,7 @@ SOFTWARE.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from itertools import product
 
 
 class SpectralConv1d(nn.Module):
@@ -400,3 +401,108 @@ class FNO3d(nn.Module):
         if return_features:
             return x.unsqueeze(-2), features.unsqueeze(-2)
         return x.unsqueeze(-2)
+
+
+class SpectralConvNd(nn.Module):
+    def __init__(self, in_channels, out_channels, modes):
+        super(SpectralConvNd, self).__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes = tuple(modes)
+        self.n_dims = len(self.modes)
+
+        self.scale = (1 / (in_channels * out_channels))
+        self.weights = nn.ParameterList([
+            nn.Parameter(self.scale * torch.rand(in_channels, out_channels, *self.modes, dtype=torch.cfloat))
+            for _ in product([0, 1], repeat=self.n_dims - 1)
+        ])
+
+    def compl_mul(self, input, weights):
+        dims = "xyzt"[:self.n_dims]
+        return torch.einsum(f"bi{dims},io{dims}->bo{dims}", input, weights)
+
+    def forward(self, x):
+        batchsize = x.shape[0]
+        sizes = tuple(x.shape[-self.n_dims:])
+        ft_sizes = sizes[:-1] + (sizes[-1] // 2 + 1,)
+        for mode, size in zip(self.modes[:-1], sizes[:-1]):
+            if mode > size:
+                raise ValueError("Input of shape " + str(x.shape) + " too small for using " + str(mode) + " modes")
+        if self.modes[-1] > ft_sizes[-1]:
+            raise ValueError("Input of shape " + str(x.shape) + " too small for using " + str(self.modes[-1]) + " modes")
+
+        x_ft = torch.fft.rfftn(x, dim=list(range(-self.n_dims, 0)))
+        out_ft = torch.zeros(batchsize, self.out_channels, *ft_sizes, dtype=torch.cfloat, device=x.device)
+
+        for weight, signs in zip(self.weights, product([0, 1], repeat=self.n_dims - 1)):
+            slices = [slice(None), slice(None)]
+            for sign, mode in zip(signs, self.modes[:-1]):
+                slices.append(slice(0, mode) if sign == 0 else slice(-mode, None))
+            slices.append(slice(0, self.modes[-1]))
+            slices = tuple(slices)
+            out_ft[slices] = self.compl_mul(x_ft[slices], weight)
+
+        return torch.fft.irfftn(out_ft, s=sizes, dim=list(range(-self.n_dims, 0)))
+
+
+class FNOFullTrajectory(nn.Module):
+    """Space-time FNO that predicts all requested trajectory frames in one pass."""
+
+    def __init__(self, num_channels, coord_dim, modes, width=64, initial_step=1, padding=0):
+        super(FNOFullTrajectory, self).__init__()
+        self.num_channels = num_channels
+        self.coord_dim = coord_dim
+        self.modes = tuple(modes)
+        self.width = width
+        self.initial_step = initial_step
+        self.padding = padding
+        self.n_dims = len(self.modes)
+
+        self.fc0 = nn.Linear(initial_step * num_channels + coord_dim, self.width)
+        self.convs = nn.ModuleList([SpectralConvNd(self.width, self.width, self.modes) for _ in range(4)])
+        self.ws = nn.ModuleList([nn.Linear(self.width, self.width) for _ in range(4)])
+        self.fc1 = nn.Linear(self.width, 128)
+        self.fc2 = nn.Linear(128, num_channels)
+
+    def _linear_channel_first(self, layer, x):
+        permute_to_last = [0] + list(range(2, x.dim())) + [1]
+        permute_to_channel = [0, x.dim() - 1] + list(range(1, x.dim() - 1))
+        return layer(x.permute(*permute_to_last)).permute(*permute_to_channel)
+
+    def forward(self, x, grid, return_features=False):
+        # x is [batch, spatial..., time, initial_step * channels].
+        # grid is [batch, spatial..., time, spatial_dim + time].
+        x = torch.cat((x, grid), dim=-1)
+        x = self.fc0(x)
+        x = x.permute(0, x.dim() - 1, *range(1, x.dim() - 1))
+
+        features = []
+        for idx, (conv, w) in enumerate(zip(self.convs, self.ws)):
+            x = conv(x) + self._linear_channel_first(w, x)
+            features.append(x)
+            if idx < len(self.convs) - 1:
+                x = F.gelu(x)
+
+        x = x.permute(0, *range(2, x.dim()), 1)
+        x = self.fc1(x)
+        x = F.gelu(x)
+        features.append(x)
+        x = self.fc2(x)
+        if return_features:
+            return x, features[-1]
+        return x
+
+
+class FNO1dFullTrajectory(FNOFullTrajectory):
+    def __init__(self, num_channels, modes1=16, modes2=16, width=64, initial_step=1):
+        super(FNO1dFullTrajectory, self).__init__(num_channels, 2, (modes1, modes2), width, initial_step)
+
+
+class FNO2dFullTrajectory(FNOFullTrajectory):
+    def __init__(self, num_channels, modes1=12, modes2=12, modes3=12, width=64, initial_step=1):
+        super(FNO2dFullTrajectory, self).__init__(num_channels, 3, (modes1, modes2, modes3), width, initial_step)
+
+
+class FNO3dFullTrajectory(FNOFullTrajectory):
+    def __init__(self, num_channels, modes1=8, modes2=8, modes3=8, modes4=8, width=32, initial_step=1):
+        super(FNO3dFullTrajectory, self).__init__(num_channels, 4, (modes1, modes2, modes3, modes4), width, initial_step)

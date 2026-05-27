@@ -153,6 +153,16 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 def get_loss(xx, yy, grid, pde_param, t_idx, model, current_epoch, num_epoch,
              training_type, noise_std, block_grad):
     _batch = yy.size(0)
+    if getattr(model, "predicts_full_trajectory", False):
+        xx = xx + torch.normal(torch.zeros_like(xx), noise_std)
+        if block_grad:
+            xx = xx.detach()
+        pred = model(xx, grid, pde_param, t_idx)
+        if pred.shape != yy.shape:
+            raise ValueError("Full-trajectory prediction shape " + str(pred.shape) +
+                             " does not match target shape " + str(yy.shape))
+        return pred, model.loss(pred, yy, initial_step=model.initial_step)
+
     pred = yy[..., :model.initial_step, :]
     t_train = yy.shape[-2]
     loss = 0

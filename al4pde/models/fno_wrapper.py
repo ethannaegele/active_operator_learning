@@ -148,7 +148,7 @@ arrangements between the parties relating hereto.
 import hydra.utils
 import torch
 import functools
-from al4pde.modules.fno import FNO1d, FNO2d, FNO3d
+from al4pde.modules.fno import FNO1d, FNO2d, FNO3d, FNO1dFullTrajectory, FNO2dFullTrajectory, FNO3dFullTrajectory
 from al4pde.models.wrapper import ModelWrapper
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -195,6 +195,89 @@ class FNOWrapper(ModelWrapper):
         return out
 
 
+class FNOFullTrajectoryWrapper(ModelWrapper):
+    """Wrapper for space-time FNOs that predict full trajectories in one call."""
+
+    predicts_full_trajectory = True
+
+    def __init__(self, *args, traj_len, if_conditional=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.traj_len = traj_len
+        self.if_conditional = if_conditional
+
+    def _repeat_param_features(self, xx, pde_param, t_idx):
+        features = []
+        if self.if_conditional and pde_param is not None:
+            features.append(pde_param)
+        if t_idx is not None and not self.task.sim.autonomous:
+            features.append(t_idx[:, None])
+        if len(features) == 0:
+            return xx
+
+        pde_features = torch.concat(features, dim=-1)
+        repeat_shape = [1] + list(xx.shape[1:-2]) + [xx.shape[-2], 1]
+        view_shape = [xx.shape[0]] + [1] * (len(xx.shape) - 3) + [1, pde_features.shape[-1]]
+        pde_features = pde_features.reshape(view_shape).repeat(*repeat_shape)
+        return torch.cat((xx, pde_features), dim=-1)
+
+    def _num_condition_channels(self, pde_param, t_idx):
+        n_cond = pde_param.shape[-1] if self.if_conditional and pde_param is not None else 0
+        if t_idx is not None and not self.task.sim.autonomous:
+            n_cond += 1
+        return n_cond
+
+    def _build_space_time_grid(self, grid, t_idx):
+        bsize = grid.shape[0]
+        spatial_shape = grid.shape[1:-1]
+        grid = grid.unsqueeze(-2).repeat(*([1] + [1] * len(spatial_shape) + [self.traj_len, 1]))
+        rel_t = torch.arange(self.traj_len, device=grid.device, dtype=grid.dtype)
+        if t_idx is None:
+            abs_t = rel_t[None, :].repeat(bsize, 1)
+        else:
+            abs_t = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
+        if hasattr(self.task, "sim") and hasattr(self.task.sim, "get_time"):
+            abs_t = self.task.sim.get_time(abs_t)
+        view_shape = [bsize] + [1] * len(spatial_shape) + [self.traj_len, 1]
+        time_grid = abs_t.reshape(view_shape).repeat(*([1] + list(spatial_shape) + [1, 1]))
+        return torch.cat((grid, time_grid), dim=-1)
+
+    def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
+        if self.norm_mode is not None:
+            xx = self.task_norm.norm_traj(xx)
+            grid = self.task_norm.norm_grid(grid)
+            if pde_param is not None:
+                pde_param = self.task_norm.norm_param(pde_param)
+
+        xx = self._repeat_param_features(xx, pde_param, t_idx)
+        xx = torch.flatten(xx, -2)
+        xx = xx.unsqueeze(-2).repeat(*([1] + [1] * (xx.dim() - 2) + [self.traj_len, 1]))
+        grid = self._build_space_time_grid(grid, t_idx)
+
+        if return_features:
+            out, feat = self.model(xx, grid, return_features=True)
+        else:
+            out = self.model(xx, grid)
+            feat = None
+
+        n_cond = self._num_condition_channels(pde_param, t_idx)
+        if n_cond > 0:
+            out = out[..., :-n_cond]
+        if self.norm_mode is not None:
+            out = self.task_norm.denorm_traj(out)
+        if return_features:
+            return out, feat
+        return out
+
+    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
+        out = self.forward(xx, grid, pde_param, t_idx, return_features)
+        traj = out[0] if return_features else out
+        if traj.shape[-2] > final_step:
+            traj = traj[..., :final_step, :]
+        if return_features:
+            return traj, out[1]
+        return traj
+
+
 def build_model(task, cfg):
     # make the model "condition" on the pde parameter (e.g. burgers nu)
     if cfg.if_conditional:
@@ -229,6 +312,42 @@ def build_model(task, cfg):
     return model
 
 
+def build_full_trajectory_model(task, cfg):
+    if cfg.if_conditional:
+        _num_channels = task.num_channels + task.num_pde_param
+    else:
+        _num_channels = task.num_channels
+    if not task.sim.autonomous:
+        _num_channels += 1
+    if task.spatial_dim == 1:
+        model = FNO1dFullTrajectory(num_channels=_num_channels,
+                                    width=cfg.width,
+                                    modes1=cfg.modes,
+                                    modes2=cfg.time_modes,
+                                    initial_step=task.initial_step).to(device)
+        print("MODEL: Building FNO1D full-trajectory")
+    elif task.spatial_dim == 2:
+        model = FNO2dFullTrajectory(num_channels=_num_channels,
+                                    width=cfg.width,
+                                    modes1=cfg.modes,
+                                    modes2=cfg.modes,
+                                    modes3=cfg.time_modes,
+                                    initial_step=task.initial_step).to(device)
+        print("MODEL: Building FNO2D full-trajectory")
+    elif task.spatial_dim == 3:
+        model = FNO3dFullTrajectory(num_channels=_num_channels,
+                                    width=cfg.width,
+                                    modes1=cfg.modes,
+                                    modes2=cfg.modes,
+                                    modes3=cfg.modes,
+                                    modes4=cfg.time_modes,
+                                    initial_step=task.initial_step).to(device)
+        print("MODEL: Building FNO3D full-trajectory")
+    else:
+        raise ValueError
+    return model
+
+
 def build_fno_wrapper(task, cfg, name=""):
     model_factory = functools.partial(build_model, task=task, cfg=cfg.model)
     optimizer_factory = hydra.utils.instantiate(cfg.optimizer, _partial_=True)
@@ -239,3 +358,16 @@ def build_fno_wrapper(task, cfg, name=""):
                         cfg.block_grad, loss, name=name,
                         step_batch=cfg.step_batch, num_train_steps=cfg.num_train_steps, max_grad_norm=cfg.max_grad_norm,
                         norm_mode=cfg.norm_mode, noise=cfg.noise, noise_mode=cfg.noise_mode)
+
+
+def build_fno_full_trajectory_wrapper(task, cfg, name=""):
+    model_factory = functools.partial(build_full_trajectory_model, task=task, cfg=cfg.model)
+    optimizer_factory = hydra.utils.instantiate(cfg.optimizer, _partial_=True)
+    scheduler_factory = hydra.utils.instantiate(cfg.scheduler, _partial_=True)
+    loss = hydra.utils.instantiate(cfg.loss)
+    return FNOFullTrajectoryWrapper(task, cfg.training_type, cfg.t_train, cfg.batch_size, model_factory,
+                                    optimizer_factory, scheduler_factory, cfg.num_workers, cfg.val_period,
+                                    cfg.vis_period, cfg.block_grad, loss, name=name, step_batch=cfg.step_batch,
+                                    num_train_steps=cfg.num_train_steps, max_grad_norm=cfg.max_grad_norm,
+                                    norm_mode=cfg.norm_mode, noise=cfg.noise, noise_mode=cfg.noise_mode,
+                                    traj_len=cfg.model.traj_len, if_conditional=cfg.model.if_conditional)
