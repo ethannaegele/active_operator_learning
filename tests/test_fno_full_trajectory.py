@@ -74,6 +74,17 @@ class FNOFullTrajectoryTest(unittest.TestCase):
 
         self.assertEqual(pred.shape, (2, 8, 5, 1))
 
+    def test_full_trajectory_padding_preserves_output_shape(self):
+        model = FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2, padding=2)
+        wrapper = make_wrapper(model, traj_len=5)
+
+        pred = wrapper(
+            torch.randn(2, 8, 2, 1),
+            torch.randn(2, 8, 1),
+        )
+
+        self.assertEqual(pred.shape, (2, 8, 5, 1))
+
     def test_2d_full_trajectory_wrapper_shape(self):
         model = FNO2dFullTrajectory(num_channels=1, modes1=3, modes2=3, modes3=3, width=8, initial_step=2)
         wrapper = make_wrapper(model, traj_len=5)

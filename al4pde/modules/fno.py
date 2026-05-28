@@ -448,7 +448,7 @@ class SpectralConvNd(nn.Module):
 class FNOFullTrajectory(nn.Module):
     """Space-time FNO that predicts all requested trajectory frames in one pass."""
 
-    def __init__(self, num_channels, coord_dim, modes, width=64, initial_step=1, padding=0):
+    def __init__(self, num_channels, coord_dim, modes, width=64, initial_step=1, padding=2):
         super(FNOFullTrajectory, self).__init__()
         self.num_channels = num_channels
         self.coord_dim = coord_dim
@@ -469,12 +469,24 @@ class FNOFullTrajectory(nn.Module):
         permute_to_channel = [0, x.dim() - 1] + list(range(1, x.dim() - 1))
         return layer(x.permute(*permute_to_last)).permute(*permute_to_channel)
 
+    def _pad(self, x):
+        if self.padding == 0:
+            return x
+        return F.pad(x, [0, self.padding] * self.n_dims)
+
+    def _unpad(self, x):
+        if self.padding == 0:
+            return x
+        slices = [slice(None), slice(None)] + [slice(None, -self.padding)] * self.n_dims
+        return x[tuple(slices)]
+
     def forward(self, x, grid, return_features=False):
         # x is [batch, spatial..., time, initial_step * channels].
         # grid is [batch, spatial..., time, spatial_dim + time].
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, x.dim() - 1, *range(1, x.dim() - 1))
+        x = self._pad(x)
 
         features = []
         for idx, (conv, w) in enumerate(zip(self.convs, self.ws)):
@@ -483,6 +495,7 @@ class FNOFullTrajectory(nn.Module):
             if idx < len(self.convs) - 1:
                 x = F.gelu(x)
 
+        x = self._unpad(x)
         x = x.permute(0, *range(2, x.dim()), 1)
         x = self.fc1(x)
         x = F.gelu(x)
@@ -494,15 +507,16 @@ class FNOFullTrajectory(nn.Module):
 
 
 class FNO1dFullTrajectory(FNOFullTrajectory):
-    def __init__(self, num_channels, modes1=16, modes2=16, width=64, initial_step=1):
-        super(FNO1dFullTrajectory, self).__init__(num_channels, 2, (modes1, modes2), width, initial_step)
+    def __init__(self, num_channels, modes1=16, modes2=16, width=64, initial_step=1, padding=2):
+        super(FNO1dFullTrajectory, self).__init__(num_channels, 2, (modes1, modes2), width, initial_step, padding)
 
 
 class FNO2dFullTrajectory(FNOFullTrajectory):
-    def __init__(self, num_channels, modes1=12, modes2=12, modes3=12, width=64, initial_step=1):
-        super(FNO2dFullTrajectory, self).__init__(num_channels, 3, (modes1, modes2, modes3), width, initial_step)
+    def __init__(self, num_channels, modes1=12, modes2=12, modes3=12, width=64, initial_step=1, padding=2):
+        super(FNO2dFullTrajectory, self).__init__(num_channels, 3, (modes1, modes2, modes3), width, initial_step, padding)
 
 
 class FNO3dFullTrajectory(FNOFullTrajectory):
-    def __init__(self, num_channels, modes1=8, modes2=8, modes3=8, modes4=8, width=32, initial_step=1):
-        super(FNO3dFullTrajectory, self).__init__(num_channels, 4, (modes1, modes2, modes3, modes4), width, initial_step)
+    def __init__(self, num_channels, modes1=8, modes2=8, modes3=8, modes4=8, width=32, initial_step=1, padding=2):
+        super(FNO3dFullTrajectory, self).__init__(num_channels, 4, (modes1, modes2, modes3, modes4), width,
+                                                  initial_step, padding)

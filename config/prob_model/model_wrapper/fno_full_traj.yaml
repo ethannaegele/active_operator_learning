@@ -19,6 +19,7 @@ model:
   modes: 12
   time_modes: 8
   width: 64
+  padding: 2
   # Full-trajectory FNOs output [batch, spatial..., traj_len, channels]
   # in one forward pass. Set this to the training target yy.shape[-2].
   traj_len: 5

@@ -324,7 +324,8 @@ def build_full_trajectory_model(task, cfg):
                                     width=cfg.width,
                                     modes1=cfg.modes,
                                     modes2=cfg.time_modes,
-                                    initial_step=task.initial_step).to(device)
+                                    initial_step=task.initial_step,
+                                    padding=cfg.get("padding", 2)).to(device)
         print("MODEL: Building FNO1D full-trajectory")
     elif task.spatial_dim == 2:
         model = FNO2dFullTrajectory(num_channels=_num_channels,
@@ -332,7 +333,8 @@ def build_full_trajectory_model(task, cfg):
                                     modes1=cfg.modes,
                                     modes2=cfg.modes,
                                     modes3=cfg.time_modes,
-                                    initial_step=task.initial_step).to(device)
+                                    initial_step=task.initial_step,
+                                    padding=cfg.get("padding", 2)).to(device)
         print("MODEL: Building FNO2D full-trajectory")
     elif task.spatial_dim == 3:
         model = FNO3dFullTrajectory(num_channels=_num_channels,
@@ -341,7 +343,8 @@ def build_full_trajectory_model(task, cfg):
                                     modes2=cfg.modes,
                                     modes3=cfg.modes,
                                     modes4=cfg.time_modes,
-                                    initial_step=task.initial_step).to(device)
+                                    initial_step=task.initial_step,
+                                    padding=cfg.get("padding", 2)).to(device)
         print("MODEL: Building FNO3D full-trajectory")
     else:
         raise ValueError
