@@ -157,7 +157,7 @@ def get_loss(xx, yy, grid, pde_param, t_idx, model, current_epoch, num_epoch,
         xx = xx + torch.normal(torch.zeros_like(xx), noise_std)
         if block_grad:
             xx = xx.detach()
-        pred = model(xx, grid, pde_param, t_idx)
+        pred = model.roll_out(xx, grid, yy.shape[-2], pde_param, t_idx)
         if pred.shape != yy.shape:
             raise ValueError("Full-trajectory prediction shape " + str(pred.shape) +
                              " does not match target shape " + str(yy.shape))

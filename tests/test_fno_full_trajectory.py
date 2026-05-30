@@ -28,12 +28,19 @@ def make_wrapper(model, traj_len):
     wrapper.norm_mode = None
     wrapper.traj_len = traj_len
     wrapper.if_conditional = False
+    wrapper.initial_step = model.initial_step
+    wrapper.loss = IdentityLoss()
     return wrapper
 
 
 class IdentityLoss(nn.Module):
-    def forward(self, pred, target, reduction=None, initial_step=0):
-        return (pred[..., initial_step:, :] - target[..., initial_step:, :]) ** 2
+    def forward(self, pred, target, reduction="mean", initial_step=0):
+        loss = (pred[..., initial_step:, :] - target[..., initial_step:, :]) ** 2
+        if reduction is None:
+            return loss
+        if reduction == "mean":
+            return loss.mean()
+        raise ValueError(reduction)
 
 
 class DummyFullTrajectoryModel(nn.Module):
@@ -49,6 +56,9 @@ class DummyFullTrajectoryModel(nn.Module):
     def forward(self, xx, grid, pde_param=None, t_idx=None):
         self.num_forward_calls += 1
         return self.pred
+
+    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None):
+        return self(xx, grid, pde_param, t_idx)[..., :final_step, :]
 
 
 def make_direct_ensemble(base_models):
@@ -123,6 +133,63 @@ class FNOFullTrajectoryTest(unittest.TestCase):
         self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
         self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
 
+    def test_roll_out_uses_requested_horizon_not_default_traj_len(self):
+        wrapper = make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 3)
+
+        pred = wrapper.roll_out(
+            torch.randn(2, 8, 2, 1),
+            torch.randn(2, 8, 1),
+            final_step=5,
+        )
+
+        self.assertEqual(pred.shape, (2, 8, 5, 1))
+
+    def test_direct_ensemble_uses_requested_horizon_for_full_trajectory_models(self):
+        wrappers = [
+            make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 3),
+            make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 3),
+        ]
+        ensemble = make_direct_ensemble(wrappers)
+
+        mean_traj, unc_traj = ensemble.unc_roll_out(
+            torch.randn(2, 8, 2, 1),
+            torch.randn(2, 8, 1),
+            final_step=5,
+        )
+
+        self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
+        self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
+
+    def test_full_trajectory_one_step_pred_uses_direct_prediction_contract(self):
+        wrapper = make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 5)
+
+        pred = wrapper.one_step_pred(
+            torch.randn(2, 8, 5, 1),
+            torch.randn(2, 8, 1),
+            None,
+            torch.zeros(2),
+        )
+
+        self.assertEqual(pred.shape, (2, 8, 5, 1))
+
+    def test_direct_ensemble_eval_pred_reuses_direct_prediction_for_onestep_metrics(self):
+        wrappers = [
+            make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 5),
+            make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 5),
+        ]
+        ensemble = make_direct_ensemble(wrappers)
+
+        eval_pred = ensemble.eval_pred(
+            torch.randn(2, 8, 2, 1),
+            torch.randn(2, 8, 5, 1),
+            torch.randn(2, 8, 1),
+            torch.randn(2, 0),
+            torch.zeros(2),
+        )
+
+        self.assertEqual(eval_pred["pred"].shape, (2, 8, 5, 1))
+        self.assertTrue(torch.equal(eval_pred["onestep_pred"], eval_pred["pred"]))
+
     def test_training_loss_calls_full_trajectory_model_once(self):
         yy = torch.randn(2, 8, 5, 1)
         model = DummyFullTrajectoryModel(yy + 1)
@@ -143,7 +210,28 @@ class FNOFullTrajectoryTest(unittest.TestCase):
 
         self.assertEqual(model.num_forward_calls, 1)
         self.assertTrue(torch.equal(pred, yy + 1))
-        self.assertEqual(loss.shape, (2, 8, 3, 1))
+        self.assertEqual(loss.shape, ())
+
+    def test_training_loss_uses_target_horizon_for_full_trajectory_wrapper(self):
+        wrapper = make_wrapper(FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2), 3)
+        yy = torch.randn(2, 8, 5, 1)
+
+        pred, loss = get_loss(
+            torch.randn(2, 8, 2, 1),
+            yy,
+            torch.randn(2, 8, 1),
+            None,
+            torch.zeros(2),
+            wrapper,
+            current_epoch=0,
+            num_epoch=1,
+            training_type="full_trajectory",
+            noise_std=0.0,
+            block_grad=False,
+        )
+
+        self.assertEqual(pred.shape, yy.shape)
+        self.assertEqual(loss.shape, ())
 
 
 if __name__ == "__main__":

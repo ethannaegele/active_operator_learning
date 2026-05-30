@@ -87,7 +87,10 @@ class Ensemble(ProbModel):
         param = param.to(device)
         t_idx = t_idx.to(device)
         pred, unc = self.unc_roll_out(xx, grid, yy.shape[-2], param, t_idx)
-        onestep_pred = self.one_step_pred(yy, grid, param, t_idx)
+        if getattr(self.base_models[0], "predicts_full_trajectory", False):
+            onestep_pred = pred
+        else:
+            onestep_pred = self.one_step_pred(yy, grid, param, t_idx)
         return {"pred": pred, "onestep_pred": onestep_pred, "yy": yy, "param": param, "unc": unc}
 
     def unc_roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
@@ -144,12 +147,17 @@ class Ensemble(ProbModel):
         [batch, spatial..., time, channels]. It does not autoregressively feed
         predictions back into the model.
         """
+        def direct_call(model):
+            if getattr(model, "predicts_full_trajectory", False):
+                return model.roll_out(xx, grid, final_step, pde_param, t_idx, return_features)
+            return model(xx, grid, pde_param, t_idx, return_features)
+
         if return_features:
-            b_m_out = [b(xx, grid, pde_param, t_idx, return_features) for b in self.base_models]
+            b_m_out = [direct_call(b) for b in self.base_models]
             outputs = [o[0] for o in b_m_out]
             features = torch.concat([o[1] for o in b_m_out], dim=-1)
         else:
-            outputs = [b(xx, grid, pde_param, t_idx, return_features) for b in self.base_models]
+            outputs = [direct_call(b) for b in self.base_models]
             features = None
 
         # Direct model outputs are expected to use [..., time, channels], where

@@ -202,6 +202,8 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
 
     def __init__(self, *args, traj_len, if_conditional=True, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.training_type != "full_trajectory":
+            raise ValueError("FNOFullTrajectoryWrapper requires training_type='full_trajectory'")
         self.traj_len = traj_len
         self.if_conditional = if_conditional
 
@@ -226,22 +228,22 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             n_cond += 1
         return n_cond
 
-    def _build_space_time_grid(self, grid, t_idx):
+    def _build_space_time_grid(self, grid, t_idx, traj_len):
         bsize = grid.shape[0]
         spatial_shape = grid.shape[1:-1]
-        grid = grid.unsqueeze(-2).repeat(*([1] + [1] * len(spatial_shape) + [self.traj_len, 1]))
-        rel_t = torch.arange(self.traj_len, device=grid.device, dtype=grid.dtype)
+        grid = grid.unsqueeze(-2).repeat(*([1] + [1] * len(spatial_shape) + [traj_len, 1]))
+        rel_t = torch.arange(traj_len, device=grid.device, dtype=grid.dtype)
         if t_idx is None:
             abs_t = rel_t[None, :].repeat(bsize, 1)
         else:
             abs_t = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
         if hasattr(self.task, "sim") and hasattr(self.task.sim, "get_time"):
             abs_t = self.task.sim.get_time(abs_t)
-        view_shape = [bsize] + [1] * len(spatial_shape) + [self.traj_len, 1]
+        view_shape = [bsize] + [1] * len(spatial_shape) + [traj_len, 1]
         time_grid = abs_t.reshape(view_shape).repeat(*([1] + list(spatial_shape) + [1, 1]))
         return torch.cat((grid, time_grid), dim=-1)
 
-    def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
+    def _forward_with_traj_len(self, xx, grid, traj_len, pde_param=None, t_idx=None, return_features=False):
         if self.norm_mode is not None:
             xx = self.task_norm.norm_traj(xx)
             grid = self.task_norm.norm_grid(grid)
@@ -250,8 +252,8 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
 
         xx = self._repeat_param_features(xx, pde_param, t_idx)
         xx = torch.flatten(xx, -2)
-        xx = xx.unsqueeze(-2).repeat(*([1] + [1] * (xx.dim() - 2) + [self.traj_len, 1]))
-        grid = self._build_space_time_grid(grid, t_idx)
+        xx = xx.unsqueeze(-2).repeat(*([1] + [1] * (xx.dim() - 2) + [traj_len, 1]))
+        grid = self._build_space_time_grid(grid, t_idx, traj_len)
 
         if return_features:
             out, feat = self.model(xx, grid, return_features=True)
@@ -268,14 +270,17 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             return out, feat
         return out
 
+    def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
+        return self._forward_with_traj_len(xx, grid, self.traj_len, pde_param, t_idx, return_features)
+
     def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
-        out = self.forward(xx, grid, pde_param, t_idx, return_features)
-        traj = out[0] if return_features else out
-        if traj.shape[-2] > final_step:
-            traj = traj[..., :final_step, :]
-        if return_features:
-            return traj, out[1]
-        return traj
+        return self._forward_with_traj_len(xx, grid, final_step, pde_param, t_idx, return_features)
+
+    def one_step_pred(self, xx, grid, param, t_idx=None):
+        # Full-trajectory models do not have a separate one-step mode. Return
+        # the direct trajectory prediction so evaluation metrics keep the same
+        # tensor contract as autoregressive models.
+        return self.roll_out(xx[..., :self.initial_step, :], grid, xx.shape[-2], param, t_idx)
 
 
 def build_model(task, cfg):
