@@ -1,256 +1,151 @@
 name: al-env-gpu
+
 channels:
-  - pytorch
-  - nvidia
   - conda-forge
   - defaults
 
 dependencies:
   - python=3.10.14
   - pip
-
-  # PyTorch + CUDA
-  - pytorch=2.2.2
-  - torchvision=0.17.2
-  - torchaudio=2.2.2
-  - pytorch-cuda=12.1
-
-  - _openmp_mutex
-  - backports.zstd
-  - blas
-  - blas-devel
-  - brotli
-  - brotli-bin
-  - brotli-python
-  - bzip2
-  - c-ares
-  - ca-certificates
-  - certifi
-  - charset-normalizer
-  - colorama
-  - contourpy
-  - cpython=3.10.20
-  - cycler
-  - exceptiongroup
-  - filelock
-  - fonttools
-  - freetype
-  - gmp
-  - gmpy2
-  - h2
-  - hpack
-  - hyperframe
-  - icu
-  - imageio
-  - importlib-metadata
-  - importlib_metadata
-  - iniconfig
-  - jinja2
-  - joblib
-  - kiwisolver
-  - lazy-loader
-  - lazy_loader
-  - lcms2
-  - lerc
-  - libabseil
-  - libblas
-  - libbrotlicommon
-  - libbrotlidec
-  - libbrotlienc
-  - libcblas
-  - libcxx
-  - libdeflate
-  - libffi
-  - libfreetype
-  - libfreetype6
-  - libgcc
-  - libgfortran
-  - libgfortran5
-  - libgrpc
-  - libhwloc
-  - libiconv
-  - libjpeg-turbo
-  - liblapack
-  - liblapacke
-  - liblzma
-  - liblzma-devel
-  - libpng
-  - libprotobuf
-  - libre2-11
-  - libsqlite
-  - libtiff
-  - libwebp-base
-  - libxcb
-  - libxml2
-  - libxml2-16
-  - libzlib
-  - llvm-openmp
-  - markupsafe
-  - mkl
-  - mkl-devel
-  - mkl-include
-  - ml_dtypes=0.5.4
-  - mpc
-  - mpfr
-  - munkres
-  - ncurses
-  - networkx
   - numpy=1.26.4
-  - openjpeg
-  - openssl
-  - opt-einsum=3.4.0
-  - opt_einsum=3.4.0
-  - pillow
-  - pluggy
-  - pthread-stubs
-  - pyparsing
-  - pysocks
-  - python-dateutil
-  - python-tzdata
-  - python_abi=3.10
-  - pytz
-  - pywavelets
-  - re2
-  - readline
-  - scikit-image
-  - scikit-learn
   - scipy
-  - six
-  - sympy
-  - tbb
-  - threadpoolctl
-  - tifffile
-  - tk
-  - tomli
-  - tornado
-  - typing_extensions
-  - tzdata
-  - unicodedata2
-  - urllib3
-  - wheel
-  - xorg-libxau
-  - xorg-libxdmcp
-  - xz
-  - xz-gpl-tools
-  - xz-tools
-  - yaml
-  - zipp
-  - zlib-ng
-  - zstd
-
+  - scikit-learn
+  - scikit-image
+  - pandas
+  - matplotlib
+  - pillow
+  - h5py
+  - pyyaml
+  - requests
+  - tqdm
+  - ipython
+  - pytest
   - pip:
-      - absl-py
+      # Local/project installs
       - -e ./external/pdearena[datagen]
       - -e .
-      - aiohappyeyeballs
-      - aiohttp
-      - aiosignal
-      - annotated-doc
-      - antlr4-python3-runtime
-      - anyio
-      - appdirs
-      - argon2-cffi
-      - argon2-cffi-bindings
-      - async-timeout
-      - attrs
-      - bmdal-reg
-      - cffi
-      - chex==0.1.86
-      - click
-      - cliffordlayers==0.1.1
-      - cloudpickle
-      - diffusers
-      - dill
-      - dm-haiku==0.0.12
-      - docker-pycreds
-      - einops
-      - etils
-      - fdtd
-      - flax==0.8.2
-      - frozenlist
-      - fsspec
-      - gitdb
-      - gitpython
-      - grpcio
-      - h11
-      - h5py
-      - hf-xet
-      - httpcore
-      - httpx
-      - huggingface-hub
-      - humanize
-      - hydra-core==1.3.2
-      - hydra-submitit-launcher==1.2.0
-      - idna
-      - importlib-resources
+
+      # PyTorch CUDA wheels
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+      - torch==2.2.2+cu121
+      - torchvision==0.17.2+cu121
+      - torchaudio==2.2.2+cu121
+
+      # JAX stack
       - jax==0.4.38
-      - jax-cfd==0.2.0
       - jaxlib==0.4.38
-      - jmp==0.0.4
-      - jsonargparse
-      - juliapkg
-      - liac-arff
-      - lightning==2.2.1
-      - lightning-utilities
-      - markdown
-      - markdown-it-py
-      - mat4py
-      - matplotlib
-      - mdurl
-      - minio
-      - mpmath
-      - msgpack
-      - multidict
-      - nest-asyncio
-      - omegaconf==2.3.0
-      - openml
+      - jax-cfd==0.2.0
+      - chex==0.1.86
+      - dm-haiku==0.0.12
+      - flax==0.8.2
       - optax==0.2.2
       - orbax-checkpoint==0.11.5
-      - packaging
-      - pandas
+      - tensorstore==0.1.78
+      - jmp==0.0.4
+      - tree-math
+
+      # Hydra/config
+      - hydra-core==1.3.2
+      - hydra-submitit-launcher==1.2.0
+      - omegaconf==2.3.0
+
+      # Geometric/deep learning packages
+      - cliffordlayers==0.1.1
+      - einops
+      - lightning==2.2.1
+      - pytorch-lightning
+      - lightning-utilities
+      - torchdata
+      - torchmetrics
+
+      # PDE / simulation / scientific stack
+      - diffusers
+      - fdtd
       - phiflow
-      - platformdirs
-      - pooch
-      - propcache
-      - protobuf
-      - psutil
-      - pyarrow
-      - pycparser
-      - pycryptodome
-      - pygments
-      - pytest
-      - pytest-explicit
-      - pytest-mock
-      - pytorch-lightning==2.6.4
       - pyvista
-      - pyyaml
-      - regex
-      - requests
-      - rich
-      - scooby
+      - vtk
+      - xarray
+      - openml
+      - liac-arff
+      - mat4py
       - seaborn
-      - semver
-      - sentry-sdk
-      - setproctitle
-      - setuptools
-      - shellingham
-      - simplejson
-      - smmap
-      - submitit
       - tabulate
+      - humanize
+
+      # Logging / experiment tracking
+      - wandb
       - tensorboard
       - tensorboard-data-server
-      - tensorstore==0.1.78
+      - sentry-sdk
+      - setproctitle
+
+      # Hugging Face / data / IO
+      - huggingface-hub
+      - hf-xet
+      - fsspec
+      - pooch
+      - minio
+      - pyarrow
+      - h5py
+      - xmltodict
+      - simplejson
+      - pycryptodome
+
+      # HTTP / async / utilities
+      - aiohttp
+      - aiohappyeyeballs
+      - aiosignal
+      - async-timeout
+      - anyio
+      - attrs
+      - frozenlist
+      - multidict
+      - propcache
+      - yarl
+      - httpx
+      - httpcore
+      - h11
+      - idna
+      - packaging
+      - platformdirs
+      - click
+      - typer
+      - shellingham
+      - rich
+      - pygments
+      - markdown
+      - markdown-it-py
+      - mdurl
+      - regex
       - tomlkit
       - toolz
-      - torchdata==0.11.0
-      - torchmetrics==1.9.0
       - tqdm
-      - tree-math
-      - typer
-      - vtk
-      - wandb
+      - appdirs
+      - cloudpickle
+      - dill
+      - msgpack
+      - nest-asyncio
+      - psutil
+      - submitit
+      - docker-pycreds
+      - gitpython
+      - gitdb
+      - smmap
+      - grpcio
+      - protobuf
+      - importlib-resources
+      - etils
+      - jsonargparse
+      - juliapkg
+      - semver
+      - bmdal-reg
+      - annotated-doc
+      - antlr4-python3-runtime
+      - argon2-cffi
+      - argon2-cffi-bindings
+      - cffi
+      - pycparser
+      - pytest-explicit
+      - pytest-mock
+      - scooby
       - werkzeug
-      - xarray
-      - xmltodict
-      - yarl
