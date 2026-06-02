@@ -324,4 +324,3 @@ dependencies:
       - xarray==2025.6.1
       - xmltodict==1.0.4
       - zipp==4.1.0
-prefix: /home/enaegele/.conda/envs/al-env-gpu
