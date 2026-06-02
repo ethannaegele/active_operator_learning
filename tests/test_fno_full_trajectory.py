@@ -30,6 +30,8 @@ def make_wrapper(model, traj_len):
     wrapper.if_conditional = False
     wrapper.initial_step = model.initial_step
     wrapper.loss = IdentityLoss()
+    wrapper.reduced_resolution_t = 1
+    wrapper.skip_initial_steps = 0
     return wrapper
 
 
@@ -116,6 +118,20 @@ class FNOFullTrajectoryTest(unittest.TestCase):
         )
 
         self.assertEqual(pred.shape, (1, 4, 4, 4, 3, 1))
+
+    def test_space_time_grid_maps_reduced_dataset_index_to_solver_time(self):
+        model = FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2)
+        wrapper = make_wrapper(model, traj_len=2)
+        wrapper.reduced_resolution_t = 5
+        wrapper.skip_initial_steps = 2
+
+        space_time_grid = wrapper._build_space_time_grid(
+            torch.zeros(1, 3, 1),
+            torch.tensor([3.0]),
+            traj_len=2,
+        )
+
+        self.assertTrue(torch.equal(space_time_grid[0, 0, :, -1], torch.tensor([25.0, 30.0])))
 
     def test_direct_ensemble_accepts_full_trajectory_fno_wrappers(self):
         wrappers = [

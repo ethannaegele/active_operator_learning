@@ -234,13 +234,19 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
         grid = grid.unsqueeze(-2).repeat(*([1] + [1] * len(spatial_shape) + [traj_len, 1]))
         rel_t = torch.arange(traj_len, device=grid.device, dtype=grid.dtype)
         if t_idx is None:
-            abs_t = rel_t[None, :].repeat(bsize, 1)
+            stored_t_idx = rel_t[None, :].repeat(bsize, 1)
         else:
-            abs_t = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
+            stored_t_idx = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
+
+        # Datasets expose t_idx in the loaded/reduced trajectory. Convert it
+        # back to the solver-step index before asking the simulator for time.
+        solver_t_idx = (stored_t_idx + getattr(self, "skip_initial_steps", 0)) * getattr(self, "reduced_resolution_t", 1)
         if hasattr(self.task, "sim") and hasattr(self.task.sim, "get_time"):
-            abs_t = self.task.sim.get_time(abs_t)
+            time_coord = self.task.sim.get_time(solver_t_idx)
+        else:
+            time_coord = solver_t_idx
         view_shape = [bsize] + [1] * len(spatial_shape) + [traj_len, 1]
-        time_grid = abs_t.reshape(view_shape).repeat(*([1] + list(spatial_shape) + [1, 1]))
+        time_grid = time_coord.reshape(view_shape).repeat(*([1] + list(spatial_shape) + [1, 1]))
         return torch.cat((grid, time_grid), dim=-1)
 
     def _forward_with_traj_len(self, xx, grid, traj_len, pde_param=None, t_idx=None, return_features=False):
