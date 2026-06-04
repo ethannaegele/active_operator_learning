@@ -302,7 +302,6 @@ dependencies:
       - pytest==9.0.3
       - pytest-explicit==1.0.1
       - pytest-mock==3.15.1
-      - pytorch-lightning==2.6.5
       - pyvers==0.2.2
       - pyvista==0.48.4
       - rich==15.0.0
@@ -325,7 +324,6 @@ dependencies:
       - tomlkit==0.14.0
       - toolz==1.1.0
       - tree-math==0.2.1
-      - triton==2.2.0
       - typing-inspection==0.4.2
       - vtk==9.6.2
       - wandb==0.27.0
