@@ -1,0 +1,9 @@
+defaults:
+  - override /prob_model/model_wrapper: fno_full_traj
+  - override /task: burgers
+
+prob_model:
+  unc_roll_out_mode: direct
+  model_wrapper:
+    training_type: full_trajectory
+    num_train_steps: 4
