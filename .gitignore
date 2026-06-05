@@ -1,6 +1,5 @@
 
 multirun/
-data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -185,8 +184,25 @@ debug/
 
 # wandb
 wandb/
-/pdearena/
-/data/
+
+
+# Ignore AL4PDE generated datasets
+/data/data/*
+
+# But allow DVC pointer files and DVC's local ignore file
+!/data/data/*.dvc
+!/data/data/.gitignore
+
+# Ignore AL4PDE run outputs
+/data/runs/*
+
+# for DVC-tracking runs, allow these too (uncomment as needed)
+#!/data/runs/*.dvc
+#!/data/runs/.gitignore
+
+# Ignore DVC remote storage if created inside repo
 /dvc-remotes/
-/data/
-/dvc-remotes/
+
+# Ignore external pdearena clone/subfolder
+/external/pdearena/
+
