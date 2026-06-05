@@ -1,0 +1,4 @@
+[core]
+    remote = drive_local
+['remote "drive_local"']
+    url = /content/drive/MyDrive/dvc-remotes/active_operator_learning_data

@@ -186,3 +186,7 @@ debug/
 # wandb
 wandb/
 /pdearena/
+/data/
+/dvc-remotes/
+/data/
+/dvc-remotes/
