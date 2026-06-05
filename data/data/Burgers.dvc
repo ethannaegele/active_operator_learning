@@ -1,0 +1,6 @@
+outs:
+- md5: 6a5545eff43473441e11bd54c3c5f05d.dir
+  size: 3583574526
+  nfiles: 1503
+  hash: md5
+  path: Burgers
