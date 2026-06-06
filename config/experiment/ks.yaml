@@ -1,9 +1,9 @@
 # @package _global_
 defaults:
   - override /hydra: submitit
-  - override /prob_model/model_wrapper: arena_orig
+  - override /prob_model/model_wrapper: fno
   - override /acquisition: random
-  - override /task: ks_l_v_ic
+  - override /task: ks
 
 
 prob_model:
