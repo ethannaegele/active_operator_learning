@@ -67,7 +67,7 @@ def save_checkpoint(run_save_path, model, al_iter, sampling_finished):
 
 def load_checkpoint(run_save_path, checkpoint_file_name, model, train=True, load_train_data=True):
     save_dict = torch.load(os.path.join(run_save_path, "checkpoints", checkpoint_file_name))
-    model.init_training(load_train_data=load_train_data)
+    model.init_training(save_dict["al_iter"], load_train_data=load_train_data)
     model.load_state_dict(save_dict['model'])
     data_path = os.path.join(run_save_path, "data")
     npy_filenames = glob.glob("*_alstp" + "*param.npy", root_dir=data_path)
