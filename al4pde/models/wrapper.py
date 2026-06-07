@@ -94,16 +94,16 @@ class ModelWrapper(Model):
             self._val_loader = torch.utils.data.DataLoader(val_data, batch_size=self.batch_size,
                                                            num_workers=self.num_workers, shuffle=False)
 
-        if al_iter == 0:
-            self.task_norm = TaskNormalizer()
-            self.task_norm.update(self.train_loader)
-            self.task_norm.to(device)
-            self.first_iter_nb = len(self.train_loader)
+        if self.norm_mode is not None:
+            if al_iter == 0 or self.task_norm is None or self.norm_mode == "every":
+                self.task_norm = TaskNormalizer()
+                self.task_norm.update(self.train_loader)
+                self.task_norm.to(device)
+
+                if al_iter == 0:
+                    self.first_iter_nb = len(self.train_loader)
+
             self.loss.init_training(self.task_norm, self.initial_step)
-        elif self.norm_mode == "every":
-            self.task_norm = TaskNormalizer()
-            self.task_norm.cpu().update(self.train_loader)
-            self.task_norm.to(device)
 
     @property
     def train_loader_full_traj(self):
