@@ -3,7 +3,7 @@ import torch
 import glob
 import numpy as np
 import random
-
+import re
 
 def bxtc_to_btcx(traj):
     # pdebench to pdearena
@@ -69,16 +69,20 @@ def load_checkpoint(run_save_path, checkpoint_file_name, model, train=True, load
     save_dict = torch.load(os.path.join(run_save_path, "checkpoints", checkpoint_file_name))
     model.init_training(save_dict["al_iter"], load_train_data=load_train_data)
     model.load_state_dict(save_dict['model'])
-    data_path = os.path.join(run_save_path, "data")
-    npy_filenames = glob.glob("*_alstp" + "*param.npy", root_dir=data_path)
-    al_iter = [int(f.split("_")[-3][5:]) for f in npy_filenames]
-
-    data_iter = max(al_iter) if len(al_iter) > 0 else 0
+    
     if train:
+        data_path = os.path.join(run_save_path, "data")
+        npy_filenames = glob.glob("*_alstp_*_param.npy", root_dir=data_path)
+        al_iters = []
+        for f in npy_filenames:
+            match = re.search(r"_alstp_(\d+)_", f)
+            if match is not None:
+                al_iters.append(int(match.group(1)))
+        data_iter = max(al_iters) if len(al_iters) > 0 else 0
         if data_iter > save_dict["al_iter"]:
             raise Exception("current dataset contains data generated with later models")
         if not save_dict["sampling_finished"]:
-            npy_filenames = glob.glob("*_alstp" + str(save_dict["al_iter"]) + "*.npy",
+            npy_filenames = glob.glob("*_alstp_" + str(save_dict["al_iter"]) + "_*.npy",
                                       root_dir=data_path)
             for file in npy_filenames:
                 del_path = os.path.join(data_path, file)
