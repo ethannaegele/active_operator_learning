@@ -36,27 +36,33 @@ def main(cfg: DictConfig):
         name=task.pde_name,
         config=OmegaConf.to_container(cfg)
     )
-    print(device)
+    try:
+        print(device)
 
-    print("jax_dev", xla_bridge.get_backend().platform, flush=True)
+        print("jax_dev", xla_bridge.get_backend().platform, flush=True)
 
-    set_current_seed(42, 0, False, task, False)  # can just be fixed
+        set_current_seed(42, 0, False, task, False)  # can just be fixed
 
-    # test data on which the efficacy of active learning will be tested
-    print("generate val data", flush=True)
-    batch_size = cfg.task.data_gen.batch_size
-    path = os.path.join(task.data_path, task.pde_name, "val")
-    generate_data(task, path, cfg.task.data_gen.num_test_batches, "val", batch_size)
+        # test data on which the efficacy of active learning will be tested
+        print("generate val data", flush=True)
+        batch_size = cfg.task.data_gen.batch_size
+        path = os.path.join(task.data_path, task.pde_name, "val")
+        generate_data(task, path, cfg.task.data_gen.num_test_batches, "val", batch_size)
 
-    # initial data to train ensemble
-    print("generate initial data", flush=True)
-    path = os.path.join(task.data_path, task.pde_name, "initial")
-    generate_data(task, path, cfg.task.data_gen.num_initial_batches, "init", batch_size)
+        # initial data to train ensemble
+        print("generate initial data", flush=True)
+        path = os.path.join(task.data_path, task.pde_name, "initial")
+        generate_data(task, path, cfg.task.data_gen.num_initial_batches, "init", batch_size)
 
-    print("generate test data", flush=True)
-    batch_size = cfg.task.data_gen.batch_size
-    path = os.path.join(task.data_path, task.pde_name, "test")
-    generate_data(task, path, cfg.task.data_gen.num_test_batches, "test", batch_size)
+        print("generate test data", flush=True)
+        batch_size = cfg.task.data_gen.batch_size
+        path = os.path.join(task.data_path, task.pde_name, "test")
+        generate_data(task, path, cfg.task.data_gen.num_test_batches, "test", batch_size)
+    except BaseException:
+        run.finish(exit_code=1)
+        raise
+    else:
+        run.finish(exit_code=0)
     
 
 if __name__ == "__main__":
