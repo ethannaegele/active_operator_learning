@@ -17,6 +17,7 @@ seed: 23
 num_epochs: 500
 start_al_iter: 0 # for restarting
 num_al_iter: 5
+warm_start_weights: false
 
 restore_checkpoint: false
 checkpoint_file_name: "latest.pt" # cannot load intermediate models right now (would have to delete later data)

@@ -8,7 +8,7 @@ from al4pde.evaluation.visualization import plot_worst_traj
 from al4pde.prob_models.prob_model import ProbModel
 from al4pde.models.build_wrapper import build_wrapper
 from al4pde.evaluation.stats import LossUncCorr, UncAvg
-
+from collections import OrderedDict
 
 def pino_uncertainty(prob_model: ProbModel, task, xx, grid, final_step, pde_param=None, t_idx=None):
     traj = prob_model.roll_out(xx, grid, final_step, pde_param, t_idx)
@@ -39,13 +39,13 @@ class Ensemble(ProbModel):
         # validate
 
     def train_n_epoch(self, al_iter: int, num_epoch: int, step_offset: int, vis: bool = True,
-                      prefix: str = "",is_last=False) -> float:
+                      prefix: str = "",is_last=False, warm_start_model_states: list[OrderedDict] | None = None) -> float:
         if self.synchronized_training:
             return super().train_n_epoch(al_iter, num_epoch, step_offset)
         else:
             total_time = 0
             for m_idx, m in enumerate(self.base_models):
-                m.init_training(al_iter)
+                m.init_training(al_iter, warm_start_model_state=warm_start_model_states[m_idx] if warm_start_model_states is not None else None)
                 if m_idx > 0 and is_last:
                     break
                 if m_idx == 0:

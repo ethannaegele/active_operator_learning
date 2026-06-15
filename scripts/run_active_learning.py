@@ -9,6 +9,8 @@ import jax.numpy as jnp
 jnp.arange(0, 100)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from jax.lib import xla_bridge
+from collections import OrderedDict
+import copy
 
 from al4pde.utils import load_checkpoint, save_checkpoint, set_current_seed
 from al4pde.evaluation.visualization import end_of_al_iter_plots
@@ -49,6 +51,12 @@ def main(cfg: DictConfig):
         print("acq", acq_strat, flush=True)
         prob_model = build_prob_model(task, cfg.prob_model)
 
+        def state_dict_to_cpu(state_dict):
+            return OrderedDict(
+                (k, v.detach().cpu().clone() if torch.is_tensor(v) else copy.deepcopy(v))
+                for k, v in state_dict.items()
+            )
+
         if cfg.wandb.name is None:
             run.name = acq_strat.name + "_" + str(cfg.seed)
 
@@ -78,6 +86,8 @@ def main(cfg: DictConfig):
             else:
                 acq_strat.generate_initial(prob_model, cfg.task.data_gen.num_initial_batches)
             first_al_iter = 0
+        
+        prev_model_states = None if not cfg.restore_checkpoint or not cfg.warm_start_weights else [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
 
         for al_iter in range(first_al_iter, cfg.num_al_iter):
             is_last = al_iter == cfg.num_al_iter - 1
@@ -86,7 +96,10 @@ def main(cfg: DictConfig):
 
             # retrain ensemble model
             set_current_seed(cfg.seed, al_iter, sampling_finished=True, task=task,  use_test=use_test)
-            prob_model.train_n_epoch(al_iter, num_epoch, num_epoch * al_iter, is_last=is_last)
+            prob_model.train_n_epoch(al_iter, num_epoch, num_epoch * al_iter, is_last=is_last, warm_start_model_states=prev_model_states)
+            
+            if cfg.warm_start_weights:
+                prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
 
             wandb.log({"al/al_iter": al_iter, "al/num_data": len(prob_model.train_loader_full_traj.dataset)})
             save_checkpoint(run_save_path, prob_model, al_iter, False)

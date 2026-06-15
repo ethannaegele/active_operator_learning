@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from timeit import default_timer
 import wandb
+from collections import OrderedDict
 
 from al4pde.models.pdebench_loss import get_loss
 from al4pde.evaluation.analysis import batch_errors
@@ -47,11 +48,14 @@ class ModelWrapper(Model):
         self.max_norm_stat = 0
         self.max_norm = 0
 
-    def init_training(self, al_iter, load_train_data=True):
+    def init_training(self, al_iter, load_train_data=True, warm_start_model_state: OrderedDict | None = None):
         print("init training")
 
         self.model = self.model_factory().to(device)
         self.model.train()
+        if warm_start_model_state is not None:
+            self.model.load_state_dict(warm_start_model_state)
+            
         total_params = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
         print(f'Total parameters = {total_params}')
         self.optimizer = self.optimizer_factory(self.model.parameters())
