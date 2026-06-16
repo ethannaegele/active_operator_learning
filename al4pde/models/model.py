@@ -151,7 +151,7 @@ class Model(nn.Module):
             pred_one_steps.append(self(x_t, grid, param, t_idx + rel_t_idx))
         return torch.concat(pred_one_steps, dim=-2)
 
-    def evaluate(self, step: int, loader: DataLoader, prefix: str, time_step_name: str = "total_epoch") -> None:
+    def evaluate(self, step: int, loader: DataLoader, prefix: str, time_step_name: str = "total_epoch") -> dict:
         """Evaluates the model on the dataset.
         @param step: Logging iteration
         @param loader:  Data loader
@@ -171,6 +171,9 @@ class Model(nn.Module):
             print(res)
             res = {prefix + key: res[key] for key in res}
             wandb.log(res)
+            # return result in json friendly format
+            res_serializable = {k: float(v) if hasattr(v, "__float__") else str(v) for k, v in res.items()}
+            return res_serializable
 
     def visualize(self, total_epoch: int) -> None:
         """Generates visualizations on the validation data set. """
