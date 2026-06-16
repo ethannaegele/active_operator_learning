@@ -172,7 +172,9 @@ class Model(nn.Module):
             res = {prefix + key: res[key] for key in res}
             wandb.log(res)
             # return result in json friendly format
-            res_serializable = {k: float(v) if hasattr(v, "__float__") else str(v) for k, v in res.items()}
+            res_serializable = {k: str(v) if not hasattr(v, "__float__") or 
+                                (isinstance(v, torch.Tensor) and v.shape != torch.Size([1])) 
+                                else round(float(v), 8) for k, v in res.items()}
             return res_serializable
 
     def visualize(self, total_epoch: int) -> None:
