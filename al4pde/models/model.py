@@ -171,10 +171,31 @@ class Model(nn.Module):
             print(res)
             res = {prefix + key: res[key] for key in res}
             wandb.log(res)
+
+            def make_json_safe(x, ndigits=8):
+                # PyTorch / NumPy scalar
+                if hasattr(x, "item"):
+                    try:
+                        x = x.item()
+                    except Exception:
+                        pass
+
+                # Normal Python / NumPy float-like values
+                if isinstance(x, float):
+                    return round(x, ndigits)
+
+                if isinstance(x, int):
+                    return x
+
+                if hasattr(x, "__float__"):
+                    try:
+                        return round(float(x), ndigits)
+                    except Exception:
+                        pass
+
+                return str(x)
             # return result in json friendly format
-            res_serializable = {k: str(v) if not hasattr(v, "__float__") or 
-                                (isinstance(v, torch.Tensor) and v.shape != torch.Size([1])) 
-                                else round(float(v), 8) for k, v in res.items()}
+            res_serializable = {k: make_json_safe(v) for k, v in res.items()}
             return res_serializable
 
     def visualize(self, total_epoch: int) -> None:
