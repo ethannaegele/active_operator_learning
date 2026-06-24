@@ -87,7 +87,22 @@ def main(cfg: DictConfig):
                 acq_strat.generate_initial(prob_model, cfg.task.data_gen.num_initial_batches)
             first_al_iter = 0
         
-        prev_model_states = None if not cfg.restore_checkpoint or not cfg.warm_start_weights else [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
+        def prev_model_states_helper(target):
+            if target == "al4pde.prob_models.ensemble.Ensemble":
+                prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
+            elif target == "al4pde.prob_models.mean_unc_model.MeanUncModel":
+                prev_model_states = {'mean': state_dict_to_cpu(prob_model.mean_model.model.state_dict()),
+                                    'unc': state_dict_to_cpu(prob_model.unc_model.state_dict())}
+            else:
+                raise ValueError(f"Invalid cfg.prob_model._target_: {target}")
+            return prev_model_states
+        
+        if not cfg.restore_checkpoint or not cfg.warm_start_weights:
+            prev_model_states = None
+        else:
+            prev_model_states = prev_model_states_helper(cfg.prob_model._target_)
+
+        #prev_model_states = None if not cfg.restore_checkpoint or not cfg.warm_start_weights else [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
 
         for al_iter in range(first_al_iter, cfg.num_al_iter):
             is_last = al_iter == cfg.num_al_iter - 1
@@ -99,7 +114,8 @@ def main(cfg: DictConfig):
             prob_model.train_n_epoch(al_iter, num_epoch, num_epoch * al_iter, is_last=is_last, warm_start_model_states=prev_model_states)
             
             if cfg.warm_start_weights:
-                prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
+                #prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
+                prev_model_states = prev_model_states_helper(cfg.prob_model._target_)
 
             wandb.log({"al/al_iter": al_iter, "al/num_data": len(prob_model.train_loader_full_traj.dataset)})
             save_checkpoint(run_save_path, prob_model, al_iter, False)
