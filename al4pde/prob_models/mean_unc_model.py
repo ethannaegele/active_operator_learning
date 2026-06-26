@@ -86,7 +86,7 @@ class MeanUncModel(ProbModel):
         # which is initialized with traj_len, from which final_step is probably obtained
         if return_features:
             raise NotImplementedError("Returning features for MeanUncModel is not supported yet")
-        mean_traj = self.mean_model.roll_out(xx, grid, final_step,pde_param=pde_param, t_idx=t_idx, return_features=False)
+        mean_traj = self.mean_model.roll_out(xx, grid, final_step, pde_param, t_idx, False)
         # unc_traj needs to be the uncertainty vector expanded to match the trajectory
 
         # TEMP NORM STEPS UNTIL TASK NORM INTEGRATED WITH UNC MODEL
@@ -119,11 +119,11 @@ class MeanUncModel(ProbModel):
         return mean_traj, unc_traj
 
     def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
-        return self.mean_model.roll_out(xx, grid, final_step, pde_param=pde_param, t_idx=t_idx, return_features=return_features)
+        return self.mean_model.roll_out(xx, grid, final_step, pde_param, t_idx, return_features)
    
     def sample_trajectory(self, xx, grid, final_step, pde_param=None, t_idx=None):
         # placeholder behavior for sample trajectory
-        return self.mean_model.roll_out(xx, grid, final_step, pde_param=pde_param, t_idx=t_idx, return_features=False)
+        return self.mean_model.roll_out(xx, grid, final_step, pde_param, t_idx, False)
     
     @property
     def val_loader(self):
@@ -241,7 +241,7 @@ class MeanUncModel(ProbModel):
             if self.block_grad:
                 xx = xx.detach() 
 
-            pred = self.mean_model.roll_out(xx, grid, yy.shape[-2], pde_param=pde_param, t_idx=t_idx)
+            pred = self.mean_model.roll_out(xx, grid, yy.shape[-2], pde_param, t_idx)
 
             # currently, since uncertainty model does not normalize internally,
             # must normalize here
