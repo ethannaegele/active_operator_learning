@@ -7,3 +7,4 @@ unc_model:
   hidden_units: 16
   distribution: normal
   if_conditional: true
+  traj_len: 41 # 41 is training temporal resolution for Burgers and KS

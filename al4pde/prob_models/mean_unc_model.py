@@ -372,10 +372,18 @@ def build_mean_unc_model(task, cfg):
           grid_channels
     if cfg.unc_model.get("if_conditional", True):
         input_channels += task.num_pde_param # add the pde parameter(s) as channel(s) under if_conditional
+    if "traj_len" in cfg.unc_model:
+        output_channels = cfg.unc_model.traj_len # autoregressive fno support
+    elif "traj_len" in cfg.model_wrapper.model:
+        output_channels = cfg.model_wrapper.model.traj_len # full trajectory fno support
+    else:
+        raise ValueError(
+            "MeanUncModel needs unc_model.traj_len when the mean model does not define model.traj_len"
+        )
     unc_model_factory = functools.partial(UncertaintyModelFullTrajectory1d, 
                                           input_channels = input_channels,
                                           hidden_units = cfg.unc_model.hidden_units,
-                                          output_channels = cfg.model_wrapper.model.traj_len,
+                                          output_channels = output_channels,
                                           input_grid_dim = input_grid_dim,
                                           task = task,
                                            training_type = cfg.model_wrapper.training_type,
