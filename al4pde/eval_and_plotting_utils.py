@@ -59,6 +59,30 @@ def setup_loader(run_id: str,
     ).set_num_steps(None)
 
     return prob_model, test_data, task, al_iter, cfg
+
+def make_json_safe(x, ndigits=8):
+    # PyTorch / NumPy scalar
+    if hasattr(x, "item"):
+        try:
+            x = x.item()
+        except Exception:
+            pass
+
+    # Normal Python / NumPy float-like values
+    if isinstance(x, float):
+        return round(x, ndigits)
+
+    if isinstance(x, int):
+        return x
+
+    if hasattr(x, "__float__"):
+        try:
+            return round(float(x), ndigits)
+        except Exception:
+            pass
+    # return result in json friendly format
+    return str(x)
+    
     
 
 
@@ -376,7 +400,7 @@ def save_final_eval_metrics(run_id: str,
                                                 test_folder,
                                                 current_directory,
                                                 checkpoint_name=checkpoint_name)
-    correlation_metrics = {prefix + k: v for k, v in correlation_metrics.items()}
+    correlation_metrics = {prefix + k: make_json_safe(v) for k, v in correlation_metrics.items()}
     wandb.log(correlation_metrics | {prefix + time_step_name: al_iter})
 
     res_combined = res | correlation_metrics # combine dictionaries
