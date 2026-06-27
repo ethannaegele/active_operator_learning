@@ -23,8 +23,10 @@ def setup_loader(run_id: str,
                             checkpoint_name: str = '4.pt',
                             ):
     os.chdir(current_directory)
+    config_dir = os.path.join(current_directory, "config")
+    config_dir = os.path.abspath(config_dir)
     
-    with hydra.initialize(version_base="1.3.2", config_path="config"):
+    with hydra.initialize(version_base="1.3.2", config_path=config_dir):
         cfg = hydra.compose(
             config_name="main",
             overrides=overrides,
