@@ -26,7 +26,7 @@ def setup_loader(run_id: str,
     config_dir = os.path.join(current_directory, "config")
     config_dir = os.path.abspath(config_dir)
     
-    with hydra.initialize_config_dir(version_base="1.3.2", config_path=config_dir):
+    with hydra.initialize_config_dir(version_base="1.3.2", config_dir=config_dir):
         cfg = hydra.compose(
             config_name="main",
             overrides=overrides,
