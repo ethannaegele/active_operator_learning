@@ -92,9 +92,9 @@ def model_error_histogram_plotter(
                                   test_folder: str, # folder for test or val set data, eg data/data/Burgers/val
                                   out_dir: str, # directory to save plots under
                                   pde_name: str, # eg 'burgers'
-                                  time_index: int, # time index to plot
+                                  time_index: int | list[int], # time index to plot
                                   current_directory: str,
-                                  sample_index: int = 0, # index of observation from test set to examine
+                                  sample_index: int | list[int] = 0, # index of observation from test set to examine
                                   checkpoint_name: str = '4.pt',
                                   ):
     
@@ -117,75 +117,63 @@ def model_error_histogram_plotter(
     # pde_param: PDE parameter
     # t_idx: starting time index
     #sample_idx = 0
-    xx, yy, grid, pde_param, t_idx = test_data[sample_index]
+    sample_index_list = [sample_index] if isinstance(sample_index, int) else sample_index
+    time_index_list = [time_index] if isinstance(time_index, int) else time_index
+    for sample_idx in sample_index_list:
+        xx, yy, grid, pde_param, t_idx = test_data[sample_idx]
 
-    # Add batch dimension and move to device.
-    xx = xx.unsqueeze(0).to(device)              # [1, x, initial_step, channels]
-    yy = yy.unsqueeze(0).to(device)              # [1, x, time, channels]
-    grid = grid.unsqueeze(0).to(device)          # [1, x, spatial_dim]
-    pde_param = pde_param.unsqueeze(0).to(device) # [1, num_pde_params]
-    t_idx = t_idx.unsqueeze(0).to(device)         # [1]
+        # Add batch dimension and move to device.
+        xx = xx.unsqueeze(0).to(device)              # [1, x, initial_step, channels]
+        yy = yy.unsqueeze(0).to(device)              # [1, x, time, channels]
+        grid = grid.unsqueeze(0).to(device)          # [1, x, spatial_dim]
+        pde_param = pde_param.unsqueeze(0).to(device) # [1, num_pde_params]
+        t_idx = t_idx.unsqueeze(0).to(device)         # [1]
 
-    prob_model.eval()
+        prob_model.eval()
 
-    with torch.no_grad():
-        # yy.shape[-2] is the trajectory length in time.
-        pred, unc = prob_model.unc_roll_out(
-            xx=xx,
-            grid=grid,
-            final_step=yy.shape[-2],
-            pde_param=pde_param,
-            t_idx=t_idx,
-            )
+        with torch.no_grad():
+            # yy.shape[-2] is the trajectory length in time.
+            pred, unc = prob_model.unc_roll_out(
+                xx=xx,
+                grid=grid,
+                final_step=yy.shape[-2],
+                pde_param=pde_param,
+                t_idx=t_idx,
+                )
 
-    # print("xx shape:", xx.shape)
-    # print("yy shape:", yy.shape)
-    # print("pred shape:", pred.shape)
-    # print("pde_param:", pde_param)
+        os.makedirs(out_dir, exist_ok=True)
 
-    # rmse = torch.sqrt(torch.mean((pred - yy) ** 2)).item()
-    # rel_l2 = (
-    #     torch.linalg.norm((pred - yy).reshape(1, -1), dim=1)
-    #     / torch.linalg.norm(yy.reshape(1, -1), dim=1)
-    # ).item()
+        for time_idx in time_index_list:
+            # errors at a specific time slice
+            true_np = yy[0, :, time_idx, 0].detach().cpu().numpy()
+            pred_np = pred[0, :, time_idx, 0].detach().cpu().numpy()
+            unc_np = unc[0, 0, time_idx, 0].detach().cpu().numpy() # should be a scalar, ie a np.float64 or similar, representing the uncertainty for that time slice
+            err_np = pred_np - true_np
+            err_np = err_np.reshape(-1)
 
-    # print("RMSE:", rmse)
-    # print("Relative L2:", rel_l2)
-    # print(device)
+            # print("Prediction:", pred_np)
+            # print("True function:", true_np)
+            #print("Errors:", err_np)
+            print(f"uncertainty at sample index {sample_idx}, time index {time_idx}:", unc_np)
 
-    # out_dir = "/content/drive/MyDrive/projects/active_operator_learning/plots/Burgers_plots/Burgers_mean_unc_power_acquisition_plots/error_histogram_plots"
-    os.makedirs(out_dir, exist_ok=True)
+            plt.figure(figsize=(6, 4))
+            counts, bin_edges, patches = plt.hist(err_np, 
+                                                density=True, 
+                                                color = 'red', 
+                                                edgecolor="black", 
+                                                label='Observed Error Distribution')
+            x = np.linspace(bin_edges[0], bin_edges[-1], num = 1000)
+            y = 1 / np.sqrt(2 * np.pi * unc_np**2) * np.exp(-x**2 / (2 * unc_np**2))
+            plt.plot(x, y, color = 'blue', label='Theoretical Error Distribution')
+            plt.title(f"Model errors at time index {time_idx}")
+            plt.xlabel("Error")
+            plt.ylabel("Density")
+            plt.legend()
+            plt.tight_layout()
+            plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{time_idx}.png", dpi=200)
+            plt.close()
 
-    # errors at a specific time slice
-    true_np = yy[0, :, time_index, 0].detach().cpu().numpy()
-    pred_np = pred[0, :, time_index, 0].detach().cpu().numpy()
-    unc_np = unc[0, 0, time_index, 0].detach().cpu().numpy() # should be a scalar, ie a np.float64 or similar, representing the uncertainty for that time slice
-    err_np = pred_np - true_np
-    err_np = err_np.reshape(-1)
-
-    print("Prediction:", pred_np)
-    print("True function:", true_np)
-    #print("Errors:", err_np)
-    print("uncertainty:", unc_np)
-
-    plt.figure(figsize=(6, 4))
-    counts, bin_edges, patches = plt.hist(err_np, 
-                                          density=True, 
-                                          color = 'red', 
-                                          edgecolor="black", 
-                                          label='Observed Error Distribution')
-    x = np.linspace(bin_edges[0], bin_edges[-1], num = 1000)
-    y = 1 / np.sqrt(2 * np.pi * unc_np**2) * np.exp(-x**2 / (2 * unc_np**2))
-    plt.plot(x, y, color = 'blue', label='Theoretical Error Distribution')
-    plt.title(f"Model errors at time index {time_index}")
-    plt.xlabel("Error")
-    plt.ylabel("Density")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_index}_time_index_{time_index}.png", dpi=200)
-    plt.close()
-
-    print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_index}_time_index_{time_index}.png")
+            print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{time_idx}.png")
 
 
 def test_trajectory_visualizer(run_id: str, 
@@ -194,7 +182,7 @@ def test_trajectory_visualizer(run_id: str,
                                 out_dir: str, # directory to save plots under
                                 pde_name: str, # eg 'burgers'
                                 current_directory: str,
-                                sample_index: int = 0, # index of observation from test set to examine
+                                sample_index: int | list[int] = 0, # index of observation from test set to examine
                                 checkpoint_name: str = '4.pt',
                                 ):
     os.chdir(current_directory)
@@ -210,78 +198,80 @@ def test_trajectory_visualizer(run_id: str,
     
     prob_model.eval()
 
-    xx, yy, grid, pde_param, t_idx = test_data[sample_index]
+    sample_index_list = [sample_index] if isinstance(sample_index, int) else sample_index
+    for sample_idx in sample_index_list:
+        xx, yy, grid, pde_param, t_idx = test_data[sample_idx]
 
-    # Add batch dimension and move to device.
-    xx = xx.unsqueeze(0).to(device)              # [1, x, initial_step, channels]
-    yy = yy.unsqueeze(0).to(device)              # [1, x, time, channels]
-    grid = grid.unsqueeze(0).to(device)          # [1, x, spatial_dim]
-    pde_param = pde_param.unsqueeze(0).to(device) # [1, num_pde_params]
-    t_idx = t_idx.unsqueeze(0).to(device)         # [1]
+        # Add batch dimension and move to device.
+        xx = xx.unsqueeze(0).to(device)              # [1, x, initial_step, channels]
+        yy = yy.unsqueeze(0).to(device)              # [1, x, time, channels]
+        grid = grid.unsqueeze(0).to(device)          # [1, x, spatial_dim]
+        pde_param = pde_param.unsqueeze(0).to(device) # [1, num_pde_params]
+        t_idx = t_idx.unsqueeze(0).to(device)         # [1]
 
-    with torch.no_grad():
-    # yy.shape[-2] is the trajectory length in time.
-        pred = prob_model.roll_out(
-            xx=xx,
-            grid=grid,
-            final_step=yy.shape[-2],
-            pde_param=pde_param,
-            t_idx=t_idx,
-        )
-    
-    # print("xx shape:", xx.shape)
-    # print("yy shape:", yy.shape)
-    # print("pred shape:", pred.shape)
-    # print("pde_param:", pde_param)
+        with torch.no_grad():
+        # yy.shape[-2] is the trajectory length in time.
+            pred = prob_model.roll_out(
+                xx=xx,
+                grid=grid,
+                final_step=yy.shape[-2],
+                pde_param=pde_param,
+                t_idx=t_idx,
+            )
+        
+        # print("xx shape:", xx.shape)
+        # print("yy shape:", yy.shape)
+        # print("pred shape:", pred.shape)
+        # print("pde_param:", pde_param)
 
-    rmse = torch.sqrt(torch.mean((pred - yy) ** 2)).item()
-    rel_l2 = (
-        torch.linalg.norm((pred - yy).reshape(1, -1), dim=1)
-        / torch.linalg.norm(yy.reshape(1, -1), dim=1)
-    ).item()
+        rmse = torch.sqrt(torch.mean((pred - yy) ** 2)).item()
+        rel_l2 = (
+            torch.linalg.norm((pred - yy).reshape(1, -1), dim=1)
+            / torch.linalg.norm(yy.reshape(1, -1), dim=1)
+        ).item()
 
-    print("RMSE:", rmse)
-    print("Relative L2:", rel_l2)
-    print(device)
+        print(f"Sample index {sample_idx} RMSE:", rmse)
+        print(f"Sample index {sample_idx} Relative L2:", rel_l2)
+        print(device)
 
-    os.makedirs(out_dir, exist_ok=True)
+        os.makedirs(out_dir, exist_ok=True)
 
-    true_np = yy[0, ..., 0].detach().cpu().numpy()
-    pred_np = pred[0, ..., 0].detach().cpu().numpy()
-    err_np = abs(pred_np - true_np)
+        true_np = yy[0, ..., 0].detach().cpu().numpy()
+        pred_np = pred[0, ..., 0].detach().cpu().numpy()
+        err_np = abs(pred_np - true_np)
 
-    print("Prediction:", pred_np)
-    print("True function:", true_np)
+        # print("Prediction:", pred_np)
+        # print("True function:", true_np)
 
-    plt.figure(figsize=(6, 4))
-    plt.imshow(true_np.T, aspect="auto", origin="lower")
-    plt.title(f"True {pde_name} trajectory".title())
-    plt.xlabel("x index")
-    plt.ylabel("time index")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.savefig(f"{out_dir}/true_{pde_name}_{run_id}_sample_index_{sample_index}.png", dpi=200)
-    plt.close()
+        plt.figure(figsize=(6, 4))
+        plt.imshow(true_np.T, aspect="auto", origin="lower")
+        plt.title(f"True {pde_name} trajectory".title())
+        plt.xlabel("x index")
+        plt.ylabel("time index")
+        plt.colorbar()
+        plt.tight_layout()
+        plt.savefig(f"{out_dir}/true_{pde_name}_{run_id}_sample_index_{sample_idx}.png", dpi=200)
+        plt.close()
 
-    plt.figure(figsize=(6, 4))
-    plt.imshow(pred_np.T, aspect="auto", origin="lower")
-    plt.title(f"Predicted {pde_name} trajectory".title())
-    plt.xlabel("x index")
-    plt.ylabel("time index")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.savefig(f"{out_dir}/pred_{pde_name}_{run_id}_sample_index_{sample_index}.png", dpi=200)
-    plt.close()
+        plt.figure(figsize=(6, 4))
+        plt.imshow(pred_np.T, aspect="auto", origin="lower")
+        plt.title(f"Predicted {pde_name} trajectory".title())
+        plt.xlabel("x index")
+        plt.ylabel("time index")
+        plt.colorbar()
+        plt.tight_layout()
+        plt.savefig(f"{out_dir}/pred_{pde_name}_{run_id}_sample_index_{sample_idx}.png", dpi=200)
+        plt.close()
 
-    plt.figure(figsize=(6, 4))
-    plt.imshow(err_np.T, aspect="auto", origin="lower")
-    plt.title("Absolute Error")
-    plt.xlabel("x index")
-    plt.ylabel("time index")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.savefig(f"{out_dir}/err_{pde_name}_{run_id}_sample_index_{sample_index}.png", dpi=200)
-    plt.close()
+        plt.figure(figsize=(6, 4))
+        plt.imshow(err_np.T, aspect="auto", origin="lower")
+        plt.title("Absolute Error")
+        plt.xlabel("x index")
+        plt.ylabel("time index")
+        plt.colorbar()
+        plt.tight_layout()
+        plt.savefig(f"{out_dir}/err_{pde_name}_{run_id}_sample_index_{sample_idx}.png", dpi=200)
+        plt.close()
 
     print("Saved plots to:", out_dir)
 
