@@ -67,7 +67,7 @@ def main(cfg: DictConfig):
             first_al_iter, sampling_finished = load_checkpoint(run_save_path, cfg.checkpoint_file_name, prob_model)
 
             if not sampling_finished:
-                set_current_seed(cfg.seed, first_al_iter, False, task=task)
+                set_current_seed(cfg.seed, first_al_iter, False, task=task, use_test=use_test)
                 acq_strat.generate(prob_model, first_al_iter)
                 save_checkpoint(run_save_path, prob_model, first_al_iter, True)
                 end_of_al_iter_plots(task, prob_model, first_al_iter)
