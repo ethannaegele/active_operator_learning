@@ -68,7 +68,7 @@ def main(cfg: DictConfig):
 
             if not sampling_finished:
                 set_current_seed(cfg.seed, first_al_iter, False, task=task, use_test=use_test)
-                acq_strat.generate(prob_model, first_al_iter)
+                acq_strat.generate(prob_model, first_al_iter, prob_model.train_loader_full_traj)
                 save_checkpoint(run_save_path, prob_model, first_al_iter, True)
                 end_of_al_iter_plots(task, prob_model, first_al_iter)
                 first_al_iter += 1
