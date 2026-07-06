@@ -102,7 +102,7 @@ class FrameRelMSE(Loss):
             target = target[..., initial_step:, :]
             se = (pred - target) ** 2
             norm = target.flatten(1, -3).square().mean(1)
-            se = se.flatten(1, -3).square().mean(1)
+            se = se.flatten(1, -3).mean(1)
             loss = se / (norm + self.eps)
             if reduction == "mean":
                 return loss.mean()
