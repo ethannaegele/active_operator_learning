@@ -324,7 +324,13 @@ def end_of_al_iter_plots(task, prob_model, al_iter, last=False):
             np.save(os.path.join(task.img_save_path, "ex_mean_" + str(al_iter) + ".npy"), pred.cpu().detach().numpy())
             np.save(os.path.join(task.img_save_path, "ex_unc_" + str(al_iter) + ".npy"), unc.cpu().detach().numpy())
             break
-    prob_model.evaluate(al_iter, prob_model.val_loader, prefix="al/", time_step_name="al_iter")
+    prob_model.evaluate(al_iter, 
+                        prob_model.val_loader, 
+                        prefix="al/", 
+                        time_step_name="al_iter",
+                        # extra num_data log specifically to align with eval metric logging
+                        extra_log={"eval_num_data": len(prob_model.train_loader_full_traj.dataset)}
+                        )
 
     os.makedirs(os.path.join(task.run_save_path, "img"), exist_ok=True)
     if not last:

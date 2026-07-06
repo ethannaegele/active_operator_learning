@@ -151,7 +151,12 @@ class Model(nn.Module):
             pred_one_steps.append(self(x_t, grid, param, t_idx + rel_t_idx))
         return torch.concat(pred_one_steps, dim=-2)
 
-    def evaluate(self, step: int, loader: DataLoader, prefix: str, time_step_name: str = "total_epoch") -> dict:
+    def evaluate(self, 
+                 step: int, 
+                 loader: DataLoader, 
+                 prefix: str, 
+                 time_step_name: str = "total_epoch",
+                 extra_log: dict | None = None) -> dict:
         """Evaluates the model on the dataset.
         @param step: Logging iteration
         @param loader:  Data loader
@@ -168,6 +173,8 @@ class Model(nn.Module):
             res = {time_step_name: step}
             for s in self.stats:
                 res.update(s.get_result(step))
+            if extra_log is not None:
+                res.update(extra_log)
             print(res)
             res = {prefix + key: res[key] for key in res}
             wandb.log(res)
