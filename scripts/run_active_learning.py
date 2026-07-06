@@ -11,6 +11,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 from jax.lib import xla_bridge
 from collections import OrderedDict
 import copy
+import time
 
 from al4pde.utils import load_checkpoint, save_checkpoint, set_current_seed
 from al4pde.evaluation.visualization import end_of_al_iter_plots
@@ -72,6 +73,8 @@ def main(cfg: DictConfig):
                 save_checkpoint(run_save_path, prob_model, first_al_iter, True)
                 end_of_al_iter_plots(task, prob_model, first_al_iter)
                 first_al_iter += 1
+        
+        al_wall_start = time.time()
 
         # generate initial data:
         if first_al_iter == -1:
@@ -105,6 +108,7 @@ def main(cfg: DictConfig):
         #prev_model_states = None if not cfg.restore_checkpoint or not cfg.warm_start_weights else [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
 
         for al_iter in range(first_al_iter, cfg.num_al_iter):
+            al_iter_start = time.time()
             is_last = al_iter == cfg.num_al_iter - 1
 
             print("\nactive learning iteration " + str(al_iter), flush=True)
@@ -117,7 +121,9 @@ def main(cfg: DictConfig):
                 #prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
                 prev_model_states = prev_model_states_helper(cfg.prob_model._target_)
 
-            wandb.log({"al/al_iter": al_iter, "al/num_data": len(prob_model.train_loader_full_traj.dataset)})
+            wandb.log({"al/al_iter": al_iter, 
+                       "al/num_data": len(prob_model.train_loader_full_traj.dataset),
+                       "al/iter_wall_time": time.time() - al_iter_start})
             save_checkpoint(run_save_path, prob_model, al_iter, False)
 
             # generate data
@@ -128,6 +134,9 @@ def main(cfg: DictConfig):
                 save_checkpoint(run_save_path, prob_model, al_iter, True)
 
             end_of_al_iter_plots(task, prob_model, al_iter, last=is_last)
+        
+        al_total_wall_time = time.time() - al_wall_start
+        wandb.log({"al/total_wall_time": al_total_wall_time})
     except BaseException:
         run.finish(exit_code=1)
         raise
