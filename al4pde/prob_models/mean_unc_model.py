@@ -149,8 +149,8 @@ class MeanUncModel(ProbModel):
                                  train_loader=train_loader, 
                                  prefix=prefix)
     
-    def evaluate(self, step, loader, prefix, time_step_name = "total_epoch"):
-        return self.mean_model.evaluate(step, loader, prefix, time_step_name=time_step_name)
+    def evaluate(self, step, loader, prefix, time_step_name = "total_epoch", extra_log = None):
+        return self.mean_model.evaluate(step, loader, prefix, time_step_name=time_step_name, extra_log=extra_log)
 
     def visualize(self, total_epoch):
         return self.mean_model.visualize(total_epoch)
