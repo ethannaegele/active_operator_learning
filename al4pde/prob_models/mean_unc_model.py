@@ -198,6 +198,9 @@ class MeanUncModel(ProbModel):
             self.unc_model.load_state_dict(warm_start_model_states['unc'])
             
         self.unc_model.train()
+
+        total_unc_model_params = sum(p.numel() for p in self.unc_model.parameters() if p.requires_grad)
+        print(f'Total uncertainty model parameters = {total_unc_model_params}')
         self.task_norm = self.mean_model.task_norm
         self.loss.init_training(self.task_norm, self.initial_step)
         self.optimizer = self.optimizer_factory(list(self.mean_model.model.parameters()) + list(self.unc_model.parameters()))
