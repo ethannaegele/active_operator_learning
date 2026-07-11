@@ -395,6 +395,7 @@ def build_mean_unc_model(task, cfg):
                                            val_period = cfg.model_wrapper.val_period,
                                            vis_period = cfg.model_wrapper.vis_period,
                                            loss = mean_model.loss,
+                                           activation = hydra.utils.instantiate(cfg.unc_model.activation),
                                            distribution = cfg.unc_model.distribution
                                            
                                              )

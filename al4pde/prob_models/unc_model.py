@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.utils.data import DataLoader
+from omegaconf import DictConfig
+#from hydra.utils import instantiate
 #import wandb
 
 from al4pde.prob_models.prob_model import ProbModel
@@ -25,10 +27,12 @@ class UncertaintyModelFullTrajectory1d(ProbModel):
                  val_period, # probably not needed
                  vis_period, # probably not needed
                  loss,
+                 activation: nn.Module,
                  distribution: str = "normal"
                  ):
         super().__init__(task, training_type, t_train, batch_size, val_period, vis_period, loss)
         self.input_grid_dim = input_grid_dim
+        self.activation = activation
 
         self.distribution = distribution.strip().lower()
         assert self.distribution in ["normal"], "Distribution must be 'normal'. Other distributions not supported currently."
@@ -39,17 +43,17 @@ class UncertaintyModelFullTrajectory1d(ProbModel):
                       kernel_size=3,
                       stride=1,
                       padding=1),
-            nn.ReLU(),
+            self.activation,
             nn.MaxPool1d(kernel_size=2,
                          stride=2)
         )
         self.block_2 = nn.Sequential(
             nn.Conv1d(hidden_units, hidden_units, 3, padding=1),
-            nn.ReLU()
+            self.activation
         )
         self.block_3 = nn.Sequential(
             nn.Conv1d(hidden_units, hidden_units, 3, padding=1),
-            nn.ReLU(),
+            self.activation,
             nn.MaxPool1d(kernel_size=2,
                          stride=2)
         )
@@ -57,13 +61,13 @@ class UncertaintyModelFullTrajectory1d(ProbModel):
             nn.Flatten(),
             nn.Linear(in_features=hidden_units * (input_grid_dim // 4),
                       out_features=256),
-            nn.ReLU(),
+            self.activation,
             nn.Linear(in_features=256,
                       out_features=128),
-            nn.ReLU(),
+            self.activation,
             nn.Linear(in_features=128,
                       out_features=128),
-            nn.ReLU(),
+            self.activation,
             nn.Linear(in_features=128,
                       out_features=output_channels)
 

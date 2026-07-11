@@ -8,3 +8,6 @@ unc_model:
   distribution: normal
   if_conditional: true
   traj_len: 41 # 41 is training temporal resolution for Burgers and KS
+  activation:
+    _target_: torch.nn.ReLU
+    
