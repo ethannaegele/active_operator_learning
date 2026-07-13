@@ -398,7 +398,7 @@ def save_final_eval_metrics(run_id: str,
     with open(f"{file_name}.json", "w") as f:
         json.dump(res_combined, f, indent=2)
 
-    wandb.save(f"{file_name}.json")
+    wandb.save(f"{current_directory}/ckpt_eval_results/{run_id}/{file_name}.json")
 
     wandb.finish()
 
