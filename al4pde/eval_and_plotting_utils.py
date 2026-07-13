@@ -394,12 +394,14 @@ def save_final_eval_metrics(run_id: str,
     wandb.log(correlation_metrics | {prefix + time_step_name: al_iter})
 
     res_combined = res | correlation_metrics # combine dictionaries
-    save_path = f"{current_directory}/ckpt_eval_results/{run_id}/{file_name}.json"
+    save_dir = os.path.join(current_directory, "ckpt_eval_results", run_id)
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, f"{file_name}.json")
 
     with open(save_path, "w") as f:
         json.dump(res_combined, f, indent=2)
 
-    wandb.save(save_path)
+    wandb.save(f"{file_name}.json")
 
     wandb.finish()
 
