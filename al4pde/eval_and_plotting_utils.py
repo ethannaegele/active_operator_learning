@@ -401,12 +401,21 @@ def save_final_eval_metrics(run_id: str,
     with open(save_path, "w") as f:
         json.dump(res_combined, f, indent=2)
 
-    wandb.save(save_path)
+    wandb.save(save_path, base_path=save_dir)
 
     wandb.finish()
 
 
-def al_comparison_plot():
+def al_comparison_plot(run_ids: list[str], 
+                       file_name_factory: str, 
+                       labels: list[str], # labels for the legend
+                       current_directory: str,
+
+                       num_data: list[int] | None = None # size of dataset,
+                                                    # can add in future eval files,
+                                                    # but for now insert manually
+                       ):
+    
     return None
     
 
