@@ -1,6 +1,6 @@
 import os
 import matplotlib
-matplotlib.use("Agg")
+#matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -11,6 +11,7 @@ import json
 from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
 from scipy.stats import pearsonr, spearmanr
+from matplotlib.markers import MarkerStyle
 
 
 from al4pde.prob_models.build_prob_model import build_prob_model
@@ -407,16 +408,84 @@ def save_final_eval_metrics(run_id: str,
 
 
 def al_comparison_plot(run_ids: list[str], 
-                       file_name_factory: str, 
+                       file_name_factory: str, # string containing the variable {ckpt}, 
+                                # which when filled with the variable gives the file name
                        labels: list[str], # labels for the legend
-                       current_directory: str,
-
-                       num_data: list[int] | None = None # size of dataset,
+                       num_data: list[int], # size of dataset for each iter,
                                                     # can add in future eval files,
                                                     # but for now insert manually
+                       current_directory: str,
+                       out_dir: str,
+                       title: str,
+                       results_folder_name: str = "ckpt_eval_results",
+                       prefix: str = "ckpt_val/", # wandb logging prefix used in the json file
+                       metric: str = "RMSE", # metric to plot
+                       #num_evals: int | None = None,
                        ):
+    # if num_data is None and num_evals is None:
+    #     raise ValueError
+    # if num_data is not None:
+    #     if num_evals != len(num_data):
+    #         print("num_evals should be the same as the length of num_data. Assigning num_evals = len(num_data).")
+    os.chdir(current_directory)
+    os.makedirs(out_dir, exist_ok=True)
+    if num_data is None or len(num_data) == 0:
+        raise ValueError
+    num_evals = len(num_data)
+    if len(run_ids) != len(labels):
+        raise ValueError("run_ids and labels should have the same length")
+    if "{ckpt}" not in file_name_factory:
+        raise ValueError("file_name_factory should contain '{ckpt}' to allow string formatting for different checkpoints")
     
-    return None
+    if not file_name_factory.endswith(".json"):
+        raise ValueError("Must include the .json extension in the file name factory.")
+    if "/" in metric:
+        raise ValueError("Do not include '/' or the logging prefix in the metric argument.")
+    metric_dict = dict()
+    
+    # get appropriate matplotlib markers for plotting
+    markers = [
+        marker
+        for marker in MarkerStyle.markers
+        if isinstance(marker, str) and marker not in {"", " ", "none", "None", ",", "s", ".", "o", "x", "+"}
+    ]
+    markers = ['o', 's', 'x', '+'] + markers
+    markers = markers[:len(labels)]
+
+    for run_id in run_ids:
+        metric_dict[run_id] = []
+        for n in range(num_evals):
+            folder_path = os.path.join(current_directory, 
+                                    results_folder_name, 
+                                    run_id) # assumes results folder contains subfolders separated by run_id
+            file_name = file_name_factory.format(ckpt=n)
+            file_path = os.path.join(folder_path, file_name)
+            with open(file_path, "r", encoding="utf-8") as file:
+                data = json.load(file)
+            current_metric = float(data[prefix + metric]) # e.g. ckpt_val/RMSE
+            metric_dict[run_id].append(current_metric)
+
+    run_ids_str = "_".join(run_ids)
+    labeled_metric_dict = dict() # label -> list of e.g. RMSE values
+
+    if num_data is not None:
+        plt.figure()
+        for idx, (run_id, label, marker) in enumerate(zip(run_ids, labels, markers)):
+            plt.plot(num_data, metric_dict[run_id], label=label, marker=marker)
+            labeled_metric_dict[label] = metric_dict[run_id]
+        plt.xlabel("Training Set Size")
+        plt.ylabel(metric)
+        plt.title(title)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f"{out_dir}/{run_ids_str}_{metric}_comparison_plot.png", dpi=200)
+        plt.show()
+        plt.close()
+
+        print(labeled_metric_dict)
+    
+    if num_data is None:
+        raise ValueError("Not currently implemented for num_data is None. Supply list of dataset sizes manually.")
     
 
         
