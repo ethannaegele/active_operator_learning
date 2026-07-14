@@ -419,7 +419,12 @@ def al_comparison_plot(run_ids: list[str],
                        title: str,
                        results_folder_name: str = "ckpt_eval_results",
                        prefix: str = "ckpt_val/", # wandb logging prefix used in the json file
-                       metric: str = "RMSE", # metric to plot
+                       metric: str = "RMSE", # metric to plot, must exist in each json file
+                       ylabel: str | None = None,
+                       threshold: float | None = None, # threshold for horizontal dashed line in plot
+                       threshold_color: str = "red",
+                       threshold_width: float = 2.0,
+                       threshold_label: str = "Error Threshold",
                        #num_evals: int | None = None,
                        ):
     # if num_data is None and num_evals is None:
@@ -442,12 +447,18 @@ def al_comparison_plot(run_ids: list[str],
     if "/" in metric:
         raise ValueError("Do not include '/' or the logging prefix in the metric argument.")
     metric_dict = dict()
+
+    if ylabel is None:
+        ylabel = metric
     
     # get appropriate matplotlib markers for plotting
     markers = [
         marker
         for marker in MarkerStyle.markers
-        if isinstance(marker, str) and marker not in {"", " ", "none", "None", ",", "s", ".", "o", "x", "+"}
+        if isinstance(marker, str) and marker not in {"", " ", 
+                                                      "none", "None", 
+                                                      ",", "s", ".", "o", 
+                                                      "x", "+"}
     ]
     markers = ['o', 's', 'x', '+'] + markers
     markers = markers[:len(labels)]
@@ -473,12 +484,19 @@ def al_comparison_plot(run_ids: list[str],
         for idx, (run_id, label, marker) in enumerate(zip(run_ids, labels, markers)):
             plt.plot(num_data, metric_dict[run_id], label=label, marker=marker)
             labeled_metric_dict[label] = metric_dict[run_id]
+        if threshold is not None:
+            plt.axhline(y=threshold, 
+                        color=threshold_color, 
+                        linestyle="--", 
+                        linewidth=threshold_width, 
+                        label=threshold_label)
         plt.xlabel("Training Set Size")
-        plt.ylabel(metric)
+        plt.ylabel(ylabel)
         plt.title(title)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f"{out_dir}/{run_ids_str}_{metric}_comparison_plot.png", dpi=200)
+        plt.savefig(f"{out_dir}/{run_ids_str}_{metric}_comparison_plot.png",
+                     dpi=200)
         plt.show()
         plt.close()
 
