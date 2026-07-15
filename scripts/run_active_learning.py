@@ -30,7 +30,7 @@ def main(cfg: DictConfig):
         config=OmegaConf.to_container(cfg)
     )
     try:
-
+        al_wall_start = time.time()
         if cfg.restore_checkpoint:
             run_id = cfg.checkpoint_id
         else:
@@ -74,7 +74,6 @@ def main(cfg: DictConfig):
                 end_of_al_iter_plots(task, prob_model, first_al_iter)
                 first_al_iter += 1
         
-        al_wall_start = time.time()
 
         # generate initial data:
         if first_al_iter == -1:
@@ -123,6 +122,7 @@ def main(cfg: DictConfig):
 
             wandb.log({"al/al_iter": al_iter, 
                        "al/num_data": len(prob_model.train_loader_full_traj.dataset),
+                       "al/cumulative_wall_time": time.time() - al_wall_start,
                        "al/iter_wall_time": time.time() - al_iter_start})
             save_checkpoint(run_save_path, prob_model, al_iter, False)
 
