@@ -426,6 +426,8 @@ def al_comparison_plot(run_ids: list[str],
                        threshold_width: float = 2.0,
                        threshold_label: str = "Error Threshold",
                        xticks: list[int] | None = None,
+                       xlim: tuple[float] | None = None,
+                       ylim: tuple[float] | None = None,
                        #num_evals: int | None = None,
                        ):
     # if num_data is None and num_evals is None:
@@ -493,6 +495,10 @@ def al_comparison_plot(run_ids: list[str],
                         label=threshold_label)
         if xticks is not None:
             plt.xticks(xticks)
+        if xlim is not None:
+            plt.xlim(xlim)
+        if ylim is not None:
+            plt.ylim(ylim)
         plt.xlabel("Training Set Size")
         plt.ylabel(ylabel)
         plt.title(title)
