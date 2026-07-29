@@ -109,41 +109,57 @@ class FNO1d(nn.Module):
         # x dim = [b, x1, t*v]
         features = []
         inp = x
+        #print("input shape: ", x.shape)
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, 2, 1)
+        
+        #print("shape after encoding and before padding: ", x.shape)
 
         x = F.pad(x, [0, self.padding])  # pad the domain if input is non-periodic
+        
+        #print("shape after padding: ", x.shape)
 
         x1 = self.conv0(x)
         x2 = self.w0(x)
         x = x1 + x2
         features.append(x)
         x = F.gelu(x)
+        
+        #print("shape after Fourier block 0: ", x.shape)
 
         x1 = self.conv1(x)
         x2 = self.w1(x)
         x = x1 + x2
         features.append(x)
         x = F.gelu(x)
+        
+        #print("shape after Fourier block 1: ", x.shape)
 
         x1 = self.conv2(x)
         x2 = self.w2(x)
         x = x1 + x2
         features.append(x)
         x = F.gelu(x)
+        
+        #print("shape after Fourier block 2: ", x.shape)
 
         x1 = self.conv3(x)
         x2 = self.w3(x)
         x = x1 + x2
         features.append(x)
+        
+        #print("shape after Fourier block 3: ", x.shape)
 
         x = x[..., :-self.padding]
         x = x.permute(0, 2, 1)
+        #print("shape immediately before decoder layer 0: ", x.shape)
         x = self.fc1(x)
         features.append(x)
         x = F.gelu(x)
+        #print("shape after decoder layer 0: ", x.shape)
         x = self.fc2(x)
+        #print("shape after decoder layer 1: ", x.shape)
         if self.predict_delta:
             x = x + inp
         x = x.unsqueeze(-2)
