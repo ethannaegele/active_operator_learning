@@ -89,7 +89,7 @@ model:
         block_idx: 6
         head:
           hidden_channels: 256
-          out_channels: ${task.num_channels}
+          out_channels: ${prob_model.model_wrapper.model.num_channels}
           num_layers: 1
           make_channel_first_input: false
           use_end_activation: false
