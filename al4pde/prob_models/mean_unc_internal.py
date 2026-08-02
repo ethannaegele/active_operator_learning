@@ -460,7 +460,7 @@ def build_mean_unc(task, cfg):
                         hydra.utils.instantiate(cfg.model_wrapper.scheduler, 
                                                 _partial_=True,),
                         name,
-                        cfg.unc_model.if_conditional,
+                        cfg.model_wrapper.model.if_conditional,
                         task,
                         cfg.model_wrapper.training_type,
                         cfg.model_wrapper.t_train,
