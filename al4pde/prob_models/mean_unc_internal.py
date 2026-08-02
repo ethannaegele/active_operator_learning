@@ -413,13 +413,13 @@ class MeanUnc(ProbModel):
                       vis=True, 
                       prefix="",
                       is_last=False,
-                      warm_start_model_state: OrderedDict | None = None,
+                      warm_start_model_states: OrderedDict | None = None,
                       #warm_start_unc_model_state: OrderedDict | None = None
                       ):
         total_time = 0
         self.init_training(al_iter, 
                            load_train_data=True,
-                           warm_start_model_state=warm_start_model_state,
+                           warm_start_model_state=warm_start_model_states,
                            #warm_start_unc_model_state=warm_start_unc_model_state
                            )
         for i in range(num_epoch):

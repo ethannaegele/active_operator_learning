@@ -95,6 +95,8 @@ def main(cfg: DictConfig):
             elif target == "al4pde.prob_models.mean_unc_model.MeanUncModel":
                 prev_model_states = {'mean': state_dict_to_cpu(prob_model.mean_model.model.state_dict()),
                                     'unc': state_dict_to_cpu(prob_model.unc_model.state_dict())}
+            elif target == "al4pde.prob_models.mean_unc_internal.MeanUnc":
+                prev_model_states = state_dict_to_cpu(prob_model.model_wrapper.model.state_dict())
             else:
                 raise ValueError(f"Invalid cfg.prob_model._target_: {target}")
             return prev_model_states
@@ -113,8 +115,13 @@ def main(cfg: DictConfig):
             print("\nactive learning iteration " + str(al_iter), flush=True)
 
             # retrain ensemble model
-            set_current_seed(cfg.seed, al_iter, sampling_finished=True, task=task,  use_test=use_test)
-            prob_model.train_n_epoch(al_iter, num_epoch, num_epoch * al_iter, is_last=is_last, warm_start_model_states=prev_model_states)
+            set_current_seed(cfg.seed, al_iter, sampling_finished=True, 
+                             task=task,  use_test=use_test)
+            prob_model.train_n_epoch(al_iter, 
+                                     num_epoch, 
+                                     num_epoch * al_iter, 
+                                     is_last=is_last, 
+                                     warm_start_model_states=prev_model_states)
             
             if cfg.warm_start_weights:
                 #prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
