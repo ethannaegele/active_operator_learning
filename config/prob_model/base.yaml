@@ -1,10 +1,10 @@
 _target_: al4pde.prob_models.ensemble.Ensemble
 defaults:
-  - model_wrapper: fno_full_traj # default since we are using full-traj models
+  - model_wrapper: fno
 num_models_ensemble: 1
 # Use "direct" for full-trajectory models whose forward pass returns
 # [batch, spatial..., time, channels] without autoregressive rollout.
-unc_roll_out_mode: "direct" # default since we are using full-traj models
+unc_roll_out_mode: "independent"
 adapt_unc_to_loss: True
 synchronized_training: False
 first_model_prediction: True
