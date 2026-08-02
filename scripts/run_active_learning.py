@@ -126,11 +126,15 @@ def main(cfg: DictConfig):
             if cfg.warm_start_weights:
                 #prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in prob_model.base_models]
                 prev_model_states = prev_model_states_helper(cfg.prob_model._target_)
+            cumulative_wall_time = time.time() - al_wall_start
+            iter_wall_time = time.time() - al_iter_start
 
             wandb.log({"al/al_iter": al_iter, 
                        "al/num_data": len(prob_model.train_loader_full_traj.dataset),
-                       "al/cumulative_wall_time": time.time() - al_wall_start,
-                       "al/iter_wall_time": time.time() - al_iter_start})
+                       "al/cumulative_wall_time": cumulative_wall_time,
+                       "al/iter_wall_time": iter_wall_time,
+                       "al/cumulative_wall_time_hours": cumulative_wall_time / 3600,
+                       "al/iter_wall_time_hours": iter_wall_time / 3600})
             save_checkpoint(run_save_path, prob_model, al_iter, False)
 
             # generate data
