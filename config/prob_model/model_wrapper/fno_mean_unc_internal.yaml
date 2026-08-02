@@ -6,6 +6,10 @@ training_type: autoregressive
 #loss_mode: gaussian_nll
 
 model:
+  if_conditional: true
+  width: 64
+  modes: 20
+  predict_delta: true
   uncertainty:
     enabled: true
     #output: log_sigma
