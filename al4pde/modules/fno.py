@@ -31,6 +31,32 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from itertools import product
+from dataclasses import dataclass
+from al4pde.models.unc_head import GAP1dAndFC, FCs
+
+@dataclass
+class UncertaintyTapSpec:
+    name: str
+    #enabled: bool
+    block_idx: int
+    in_channels: int
+    hidden_channels: int
+    out_channels: int
+    num_layers: int = 1
+    make_channel_first_input: bool = False
+    use_end_activation: bool = True
+    detach: bool | None = None
+
+
+@dataclass
+class UncertaintySpec:
+    enabled: bool
+    taps: list[UncertaintyTapSpec]
+    #aggregator: str = "sum
+    detach_features: bool = False
+    clamp_log_sigma: bool = False
+    min_log_sigma: float | None = None
+    max_log_sigma: float | None = None
 
 
 class SpectralConv1d(nn.Module):
@@ -71,7 +97,13 @@ class SpectralConv1d(nn.Module):
 
 
 class FNO1d(nn.Module):
-    def __init__(self, num_channels, modes=16, width=64, initial_step=10, predict_delta=False):
+    def __init__(self, 
+                 num_channels, 
+                 modes=16, 
+                 width=64, 
+                 initial_step=10, 
+                 predict_delta=False,
+                 uncertainty_spec: UncertaintySpec | None = None):
         super(FNO1d, self).__init__()
 
         """
@@ -105,9 +137,85 @@ class FNO1d(nn.Module):
         self.fc2 = nn.Linear(128, num_channels)
         self.predict_delta = predict_delta
 
-    def forward(self, x, grid, return_features=False):
+        self.uncertainty_spec = uncertainty_spec
+        self.uncertainty_enabled = uncertainty_spec is not None and uncertainty_spec.enabled
+        self.unc_heads = nn.ModuleDict()
+        self.unc_taps_by_block = {}
+        num_out_channels_sum = 0
+        if self.uncertainty_enabled:
+            for tap in uncertainty_spec.taps:
+                if tap.name != "last":
+                    num_out_channels_sum += tap.out_channels
+            for tap in uncertainty_spec.taps:
+                if tap.name != "last":
+                    self.unc_heads[tap.name] = GAP1dAndFC(
+                        in_channels=tap.in_channels,
+                        out_channels=tap.out_channels,
+                        num_layers=tap.num_layers,
+                        hidden_channels=tap.hidden_channels,
+                        make_channel_first_input=tap.make_channel_first_input,
+                        use_end_activation=tap.use_end_activation
+                        )
+                    
+                else:
+                    self.unc_heads[tap.name] = FCs(
+                                            in_channels=num_out_channels_sum,
+                                            out_channels=tap.out_channels,
+                                            num_layers=tap.num_layers,
+                                            hidden_channels=tap.hidden_channels,
+                                            use_end_activation=tap.use_end_activation # should generally be False
+                                        )
+                self.unc_taps_by_block.setdefault(tap.block_idx, []).append(tap)
+
+    def _add_unc_outputs(self, unc_outputs, block_idx, x):
+        if not self.uncertainty_enabled:
+            return None
+
+        taps = self.unc_taps_by_block.get(block_idx, [])
+        for tap in taps:
+            detach = self.uncertainty_spec.detach_features if tap.detach is None else tap.detach
+            x_unc = x.detach() if detach else x
+
+            out = self.unc_heads[tap.name](x_unc)
+            unc_outputs.append(out)
+
+    def _aggregate_unc_outputs(self, unc_outputs, block_idx):
+        if len(unc_outputs) == 0:
+            raise RuntimeError("return_uncertainty=True but no uncertainty taps" \
+            " are enabled")
+
+        stacked = torch.cat(unc_outputs, dim=-1)
+        last_tap = self.unc_taps_by_block.get(block_idx, [])
+        if len(last_tap) != 1:
+            raise RuntimeError("Exactly one final uncertainty tap is required")
+        last_tap = last_tap[0]
+        detach = self.uncertainty_spec.detach_features if last_tap.detach is None else last_tap.detach
+        stacked_unc = stacked.detach() if detach else stacked
+
+        log_sigma = self.unc_heads[last_tap.name](stacked_unc)
+
+        if self.uncertainty_spec.clamp_log_sigma:
+            if self.uncertainty_spec.min_log_sigma is None and self.uncertainty_spec.max_log_sigma is None:
+                raise ValueError("Invalid uncertainty spec. " \
+                "Tried to clamp log sigma with both min_log_sigma " \
+                "and max_log_sigma = None")
+            log_sigma = torch.clamp(
+                log_sigma,
+                min=self.uncertainty_spec.min_log_sigma,
+                max=self.uncertainty_spec.max_log_sigma,
+            )
+
+        return log_sigma
+
+    def forward(self, x, grid, return_features=False, return_uncertainty=False):
         # x dim = [b, x1, t*v]
+        if return_features and return_uncertainty:
+            raise ValueError("""return_features=True and return_uncertainty=True
+              is not supported. Uncertainty-based active learning and
+              feature-based active learning are two distinct modes and should
+              be used separately.""")
         features = []
+        unc_outputs = []
         inp = x
         #print("input shape: ", x.shape)
         x = torch.cat((x, grid), dim=-1)
@@ -119,12 +227,14 @@ class FNO1d(nn.Module):
         x = F.pad(x, [0, self.padding])  # pad the domain if input is non-periodic
         
         #print("shape after padding: ", x.shape)
+        self._add_unc_outputs(unc_outputs, 0, x)
 
         x1 = self.conv0(x)
         x2 = self.w0(x)
         x = x1 + x2
         features.append(x)
         x = F.gelu(x)
+        self._add_unc_outputs(unc_outputs, 1, x)
         
         #print("shape after Fourier block 0: ", x.shape)
 
@@ -133,6 +243,7 @@ class FNO1d(nn.Module):
         x = x1 + x2
         features.append(x)
         x = F.gelu(x)
+        self._add_unc_outputs(unc_outputs, 2, x)
         
         #print("shape after Fourier block 1: ", x.shape)
 
@@ -141,6 +252,7 @@ class FNO1d(nn.Module):
         x = x1 + x2
         features.append(x)
         x = F.gelu(x)
+        self._add_unc_outputs(unc_outputs, 3, x)
         
         #print("shape after Fourier block 2: ", x.shape)
 
@@ -148,6 +260,7 @@ class FNO1d(nn.Module):
         x2 = self.w3(x)
         x = x1 + x2
         features.append(x)
+        self._add_unc_outputs(unc_outputs, 4, x)
         
         #print("shape after Fourier block 3: ", x.shape)
 
@@ -157,12 +270,16 @@ class FNO1d(nn.Module):
         x = self.fc1(x)
         features.append(x)
         x = F.gelu(x)
+        self._add_unc_outputs(unc_outputs, 5, x)
         #print("shape after decoder layer 0: ", x.shape)
         x = self.fc2(x)
         #print("shape after decoder layer 1: ", x.shape)
         if self.predict_delta:
             x = x + inp
         x = x.unsqueeze(-2)
+        if return_uncertainty:
+            log_sigma = self._aggregate_unc_outputs(unc_outputs, block_idx=6)
+            return x, log_sigma
         if return_features:
             return x, features
         return x

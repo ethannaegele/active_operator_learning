@@ -1,0 +1,4 @@
+_target_: al4pde.prob_models.mean_unc_internal.MeanUnc
+
+defaults:
+  - model_wrapper: fno_mean_unc_internal

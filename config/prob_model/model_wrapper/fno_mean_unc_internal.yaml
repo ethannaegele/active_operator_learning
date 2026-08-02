@@ -1,0 +1,92 @@
+defaults:
+  - fno
+
+_target_: al4pde.models.fno_wrapper.FNOWrapper
+training_type: autoregressive
+#loss_mode: gaussian_nll
+
+model:
+  uncertainty:
+    enabled: true
+    #output: log_sigma
+    detach_features: false
+    clamp_log_sigma: false
+    min_log_sigma: -8.0
+    max_log_sigma: 2.0
+    taps:
+      - name: block0 # right after encoding and before fourier block 0 
+        enabled: false
+        block_idx: 0
+        head:
+          in_channels: ${prob_model.model_wrapper.model.width}
+          hidden_channels: 256
+          out_channels: 128
+          num_layers: 1
+          make_channel_first_input: false # input is already channel/feature first, shape [B, C, X]
+          use_end_activation: true
+          #activation: gelu
+      - name: block1 # after fourier block 0
+        enabled: true
+        block_idx: 1
+        head:
+          in_channels: ${prob_model.model_wrapper.model.width}
+          hidden_channels: 256
+          out_channels: 128
+          num_layers: 1
+          make_channel_first_input: false
+          use_end_activation: true
+          #activation: gelu
+      - name: block2 # after fourier block 1
+        enabled: true
+        block_idx: 2
+        head:
+          in_channels: ${prob_model.model_wrapper.model.width}
+          hidden_channels: 256
+          out_channels: 128
+          num_layers: 1
+          make_channel_first_input: false
+          use_end_activation: true
+          #activation: gelu
+      - name: block3 # after fourier block 2
+        enabled: true
+        block_idx: 3
+        head:
+          in_channels: ${prob_model.model_wrapper.model.width}
+          hidden_channels: 256
+          out_channels: 128
+          num_layers: 1
+          make_channel_first_input: false
+          use_end_activation: true
+          #activation: gelu
+      - name: block4 # after fourier block 3
+        enabled: true
+        block_idx: 4
+        head:
+          in_channels: ${prob_model.model_wrapper.model.width}
+          hidden_channels: 256
+          out_channels: 128
+          num_layers: 1
+          make_channel_first_input: false
+          use_end_activation: true
+          #activation: gelu
+      - name: block5 # after first decoding layer
+        enabled: true
+        block_idx: 5
+        head:
+          in_channels: 128 # fixed at 128 in FNO1d/2d implementation
+          hidden_channels: 256
+          out_channels: 128 # learning loss conventional output size
+          num_layers: 1
+          make_channel_first_input: true # output from decoding layer is [B, X, C]
+          use_end_activation: true
+          #activation: gelu
+      - name: last # the final fully connected block after features from all unc heads have been concatted
+        enabled: true # must be enabled if uncertainty is enabled
+        block_idx: 6
+        head:
+          hidden_channels: 256
+          out_channels: ${task.num_channels}
+          num_layers: 1
+          make_channel_first_input: false
+          use_end_activation: false
+          #activation: gelu

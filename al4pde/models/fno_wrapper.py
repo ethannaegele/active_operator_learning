@@ -148,7 +148,9 @@ arrangements between the parties relating hereto.
 import hydra.utils
 import torch
 import functools
-from al4pde.modules.fno import FNO1d, FNO2d, FNO3d, FNO1dFullTrajectory, FNO2dFullTrajectory, FNO3dFullTrajectory
+from al4pde.modules.fno import FNO1d, FNO2d, FNO3d
+from al4pde.modules.fno import FNO1dFullTrajectory, FNO2dFullTrajectory, FNO3dFullTrajectory
+from al4pde.modules.fno import UncertaintyTapSpec, UncertaintySpec
 from al4pde.models.wrapper import ModelWrapper
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -156,7 +158,21 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 class FNOWrapper(ModelWrapper):
     """Wrapper for FNO."""
 
-    def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
+    def _forward_mean_unc(self, 
+                        xx, 
+                        grid, 
+                        pde_param=None, 
+                        t_idx=None, 
+                        return_features=False,
+                        return_uncertainty=False):
+        """General forward wrapper method for internally handling normalization,
+        pde param channel behavior, conditional channel stripping, and branches
+        for return_features and return_uncertainty behavior."""
+        if return_features and return_uncertainty:
+            raise ValueError("""return_features=True and return_uncertainty=True
+                          is not supported. Uncertainty-based active learning and
+                          feature-based active learning are two distinct modes and should
+                          be used separately.""")
 
         if self.norm_mode is not None:
             xx = self.task_norm.norm_traj(xx)
@@ -179,20 +195,59 @@ class FNOWrapper(ModelWrapper):
                                dim=-1)
             xx = torch.flatten(xx, -2)
             if return_features:
-                out, feat = self.model(xx, grid, True)
+                out, feat = self.model(xx, grid, return_features=True)
+                out = out[..., : -pde_param.shape[-1]]
+            elif return_uncertainty:
+                out, log_sigma = self.model(xx, 
+                                            grid, 
+                                            return_features=False, 
+                                            return_uncertainty=True)
                 out = out[..., : -pde_param.shape[-1]]
             else:
                 out = self.model(xx, grid)[..., :-pde_param.shape[-1]]
         else:
             if return_features:  # if statement because not everywhere implemented and normal call should still work
-                out, feat = self.model(xx, grid, True)
+                out, feat = self.model(xx, grid, return_features=True)
+            elif return_uncertainty:
+                out, log_sigma = self.model(xx, 
+                                            grid, 
+                                            return_features=False, 
+                                            return_uncertainty=True)
             else:
                 out = self.model(xx, grid)
         if self.norm_mode is not None:
             out = self.task_norm.denorm_traj(out)
         if return_features:
             return out, feat
+        if return_uncertainty:
+            return out, log_sigma
         return out
+
+    def forward(self, 
+                xx, 
+                grid, 
+                pde_param=None, 
+                t_idx=None, 
+                return_features=False,):
+        return self._forward_mean_unc(xx, 
+                                      grid, 
+                                      pde_param=pde_param, 
+                                      t_idx=t_idx,
+                                      return_features=return_features,
+                                      return_uncertainty=False)
+
+    def forward_mean_unc(self,
+                         xx,
+                         grid,
+                         pde_param=None,
+                         t_idx=None,):
+        """Forward method that returns (mean, unc) where unc is log_sigma."""
+        return self._forward_mean_unc(xx,
+                                      grid,
+                                      pde_param=pde_param,
+                                      t_idx=t_idx,
+                                      return_features=False,
+                                      return_uncertainty=True)
 
 
 class FNOFullTrajectoryWrapper(ModelWrapper):
@@ -297,11 +352,17 @@ def build_model(task, cfg):
         _num_channels = task.num_channels
     if not task.sim.autonomous:
         _num_channels += 1
+    uncertainty_spec = build_uncertainty_spec(cfg.get("uncertainty", None))
+    if uncertainty_spec is not None and task.spatial_dim != 1:
+        raise NotImplementedError("Uncertainty specs are only currently valid for 1D problems.")
     if task.spatial_dim == 1:
         model = FNO1d(num_channels=_num_channels,  # originally num_channels
                       width=cfg.width,
                       modes=cfg.modes,
-                      initial_step=task.initial_step, predict_delta=cfg.predict_delta).to(device)
+                      initial_step=task.initial_step, 
+                      predict_delta=cfg.predict_delta,
+                      uncertainty_spec=uncertainty_spec
+                      ).to(device)
         print("MODEL: Building FNO1D")
     elif task.spatial_dim == 2:
         model = FNO2d(num_channels=_num_channels,  # originally num_channels
@@ -360,6 +421,41 @@ def build_full_trajectory_model(task, cfg):
     else:
         raise ValueError
     return model
+
+def build_uncertainty_spec(cfg):
+    if cfg is None or not cfg.get("enabled", False):
+        return None
+
+    taps = []
+    for tap in cfg.get("taps", []):
+        if not tap.get("enabled", False):
+            continue
+
+        head = tap.get("head", {})
+        taps.append(
+            UncertaintyTapSpec(
+                name=tap.get("name", f"block{tap.block_idx}"),
+                #enabled=tap.get("enabled", True),
+                block_idx=tap.block_idx,
+                in_channels=head.get("in_channels", cfg.get("width", 64)),
+                hidden_channels=head.get("hidden_channels", 256),
+                out_channels=head.get("out_channels", 128),
+                num_layers=head.get("num_layers", 1),
+                make_channel_first_input=head.get("make_channel_first_input", False),
+                use_end_activation=head.get("use_end_activation", True),
+                detach=tap.get("detach", None),
+            )
+        )
+
+    return UncertaintySpec(
+        enabled=True,
+        taps=taps,
+       # aggregator=cfg.get("aggregator", "sum"),
+        detach_features=cfg.get("detach_features", False),
+        min_log_sigma=cfg.get("min_log_sigma", None),
+        max_log_sigma=cfg.get("max_log_sigma", None),
+        clamp_log_sigma=cfg.get("clamp_log_sigma", False),
+    )
 
 
 def build_fno_wrapper(task, cfg, name=""):
