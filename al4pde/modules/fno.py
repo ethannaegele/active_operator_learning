@@ -616,10 +616,14 @@ class FNOFullTrajectory(nn.Module):
     def forward(self, x, grid, return_features=False):
         # x is [batch, spatial..., time, initial_step * channels].
         # grid is [batch, spatial..., time, spatial_dim + time].
+        #print("input shape: ", x.shape)
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, x.dim() - 1, *range(1, x.dim() - 1))
+        #print("shape after encoding and before padding: ", x.shape)
         x = self._pad(x)
+
+        #print("shape after padding: ", x.shape)
 
         features = []
         for idx, (conv, w) in enumerate(zip(self.convs, self.ws)):
@@ -627,13 +631,17 @@ class FNOFullTrajectory(nn.Module):
             features.append(x)
             if idx < len(self.convs) - 1:
                 x = F.gelu(x)
+            #print(f"shape after Fourier block {idx}: ", x.shape)
 
         x = self._unpad(x)
         x = x.permute(0, *range(2, x.dim()), 1)
+        #print("shape immediately before decoder layer 0: ", x.shape)
         x = self.fc1(x)
         x = F.gelu(x)
+        #print("shape after decoder layer 0: ", x.shape)
         features.append(x)
         x = self.fc2(x)
+        #print("shape after decoder layer 1: ", x.shape)
         if return_features:
             return x, features[-1]
         return x
