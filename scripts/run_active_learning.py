@@ -147,7 +147,8 @@ def main(cfg: DictConfig):
             end_of_al_iter_plots(task, prob_model, al_iter, last=is_last)
         
         al_total_wall_time = time.time() - al_wall_start
-        wandb.log({"al/total_wall_time": al_total_wall_time})
+        wandb.log({"al/total_wall_time": al_total_wall_time,
+                   "al/total_wall_time_hours": al_total_wall_time / 3600})
     except BaseException:
         run.finish(exit_code=1)
         raise
