@@ -304,7 +304,13 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
         time_grid = time_coord.reshape(view_shape).repeat(*([1] + list(spatial_shape) + [1, 1]))
         return torch.cat((grid, time_grid), dim=-1)
 
-    def _forward_with_traj_len(self, xx, grid, traj_len, pde_param=None, t_idx=None, return_features=False):
+    def _forward_mean_unc(self, xx, grid, traj_len, pde_param=None, t_idx=None, 
+                          return_features=False, return_uncertainty=False):
+        if return_features and return_uncertainty:
+            raise ValueError("""return_features=True and return_uncertainty=True
+                is not supported. Uncertainty-based active learning and
+                feature-based active learning are two distinct modes and should
+                be used separately.""")
         if self.norm_mode is not None:
             xx = self.task_norm.norm_traj(xx)
             grid = self.task_norm.norm_grid(grid)
@@ -318,6 +324,9 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
 
         if return_features:
             out, feat = self.model(xx, grid, return_features=True)
+        elif return_uncertainty:
+            out, log_sigma = self.model(xx, grid, return_features=False,
+                                        return_uncertainty=True)
         else:
             out = self.model(xx, grid)
             feat = None
@@ -329,10 +338,32 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             out = self.task_norm.denorm_traj(out)
         if return_features:
             return out, feat
+        if return_uncertainty:
+            return out, log_sigma
         return out
+    
+
+    def _forward_with_traj_len(self, xx, grid, traj_len, pde_param=None, 
+                               t_idx=None, return_features=False):
+        return self._forward_mean_unc(xx, 
+                                      grid, 
+                                      traj_len, 
+                                      pde_param=pde_param, 
+                                      t_idx=t_idx, 
+                                      return_features=return_features, 
+                                      return_uncertainty=False)
 
     def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
         return self._forward_with_traj_len(xx, grid, self.traj_len, pde_param, t_idx, return_features)
+
+    def forward_mean_unc(self, xx, grid, pde_param=None, t_idx=None):
+        return self._forward_mean_unc(xx, 
+                                      grid, 
+                                      self.traj_len,
+                                      pde_param=pde_param, 
+                                      t_idx=t_idx, 
+                                      return_features=False, 
+                                      return_uncertainty=True)
 
     def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
         return self._forward_with_traj_len(xx, grid, final_step, pde_param, t_idx, return_features)
@@ -391,12 +422,16 @@ def build_full_trajectory_model(task, cfg):
         _num_channels = task.num_channels
     if not task.sim.autonomous:
         _num_channels += 1
+    uncertainty_spec = build_uncertainty_spec(cfg.get("uncertainty", None))
+    if uncertainty_spec is not None and task.spatial_dim != 1:
+        raise NotImplementedError("Uncertainty specs are only currently valid for 1D problems.")
     if task.spatial_dim == 1:
         model = FNO1dFullTrajectory(num_channels=_num_channels,
                                     width=cfg.width,
                                     modes1=cfg.modes,
                                     modes2=cfg.time_modes,
                                     initial_step=task.initial_step,
+                                    uncertainty_spec=uncertainty_spec,
                                     padding=cfg.get("padding", 2)).to(device)
         print("MODEL: Building FNO1D full-trajectory")
     elif task.spatial_dim == 2:

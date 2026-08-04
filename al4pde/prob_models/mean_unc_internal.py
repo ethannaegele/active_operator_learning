@@ -36,9 +36,9 @@ class MeanUnc(ProbModel):
                  ):
         super().__init__(*args, **kwargs)
         self.model_wrapper = model_wrapper
-        if isinstance(model_wrapper, FNOFullTrajectoryWrapper) or isinstance(model_wrapper, ArenaWrapper):
+        if isinstance(model_wrapper, ArenaWrapper):
             raise NotImplementedError("Internal MeanUnc behavior not yet " \
-            "supported for Full Trajectory FNO or PDEArena models.")
+            "supported for PDEArena models.")
         self.noise = noise
         self.noise_mode = noise_mode
         self.block_grad = block_grad
@@ -63,11 +63,15 @@ class MeanUnc(ProbModel):
                                                    grid, 
                                                    pde_param=pde_param,
                                                    t_idx=t_idx)
-
-        # expand log_sigma from shape [B, C] to shape of mean
-        B, C = log_sigma.shape
         spatial_ones = [1] * (mean.ndim - 3)
-        log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, 1, C).expand_as(mean)
+        if getattr(self.model_wrapper, "predicts_full_trajectory", False):
+            B, T, C = log_sigma.shape
+            # expand log_sigma from shape [B, T, C] to shape of mean
+            log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, T, C).expand_as(mean)
+        else:
+            # expand log_sigma from shape [B, C] to shape of mean
+            B, C = log_sigma.shape
+            log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, 1, C).expand_as(mean)
         return mean, log_sigma_expanded
         
     def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
@@ -101,6 +105,16 @@ class MeanUnc(ProbModel):
                 if t_idx is not None:
                     t_idx += 1
             return pred, torch.concat(unc_cell, dim=-2)
+
+        elif self.training_type == 'full_trajectory':
+            m, unc = self.uncertainty(xx, 
+                                    grid, 
+                                    pde_param=pde_param, 
+                                    t_idx=t_idx,
+                                    )
+            # up to initial step does not matter; it is discarded for NLL, and
+            # is set to 0 for unc_roll_out so does not affect acquisition
+            return m[..., 0:final_step, :], unc[..., 0:final_step, :]
 
         else:
             raise ValueError(self.training_type)
@@ -318,10 +332,20 @@ class MeanUnc(ProbModel):
                     if self.training_type in {"teacher_forcing", "full_teacher_forcing"}:
                         xx = torch.cat((xx[..., 1:, :], y), dim=-2)
                     unc_cell.append(unc)
+                log_sigma = torch.concat(unc_cell, dim=-2)
+            elif self.training_type == 'full_trajectory':
+                xx = xx + torch.normal(torch.zeros_like(xx), std)
+                
+                pred, log_sigma = self.unc_roll_out_log_sigma(xx, 
+                                                        grid, 
+                                                        yy.shape[-2],
+                                                        pde_param=pde_param,
+                                                        t_idx=t_idx,
+                                                        return_features=False)
     
             else:
                 raise ValueError(self.training_type)
-            log_sigma = torch.concat(unc_cell, dim=-2)
+            
 
             # currently, prediction is denormalized, log_sigma is normalized.
             # So, renormalize to put them on the same scale

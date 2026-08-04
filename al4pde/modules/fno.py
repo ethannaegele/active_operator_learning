@@ -32,7 +32,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from itertools import product
 from dataclasses import dataclass
-from al4pde.models.unc_head import GAP1dAndFC, FCs
+from al4pde.models.unc_head import GAP1dAndFC, GAP2dAndFC, FCs
 
 @dataclass
 class UncertaintyTapSpec:
@@ -581,7 +581,14 @@ class SpectralConvNd(nn.Module):
 class FNOFullTrajectory(nn.Module):
     """Space-time FNO that predicts all requested trajectory frames in one pass."""
 
-    def __init__(self, num_channels, coord_dim, modes, width=64, initial_step=1, padding=2):
+    def __init__(self, 
+                 num_channels, 
+                 coord_dim, 
+                 modes, 
+                 width=64, 
+                 initial_step=1, 
+                 padding=2,
+                 uncertainty_spec: UncertaintySpec | None = None):
         super(FNOFullTrajectory, self).__init__()
         self.num_channels = num_channels
         self.coord_dim = coord_dim
@@ -596,6 +603,79 @@ class FNOFullTrajectory(nn.Module):
         self.ws = nn.ModuleList([nn.Linear(self.width, self.width) for _ in range(4)])
         self.fc1 = nn.Linear(self.width, 128)
         self.fc2 = nn.Linear(128, num_channels)
+
+        self.uncertainty_spec = uncertainty_spec
+        self.uncertainty_enabled = uncertainty_spec is not None and uncertainty_spec.enabled
+        self.unc_heads = nn.ModuleDict()
+        self.unc_taps_by_block = {}
+        num_out_channels_sum = 0
+        if self.uncertainty_enabled:
+            for tap in uncertainty_spec.taps:
+                if tap.name != "last":
+                    num_out_channels_sum += tap.out_channels
+            for tap in uncertainty_spec.taps:
+                if tap.name != "last":
+                    self.unc_heads[tap.name] = GAP2dAndFC(
+                        in_channels=tap.in_channels,
+                        out_channels=tap.out_channels,
+                        num_layers=tap.num_layers,
+                        hidden_channels=tap.hidden_channels,
+                        make_channel_first_input=tap.make_channel_first_input,
+                        use_end_activation=tap.use_end_activation,
+                        time_as_second_dim=True # can potentially be a config option later
+                        )
+                    
+                else:
+                    self.unc_heads[tap.name] = FCs(
+                                            in_channels=num_out_channels_sum,
+                                            out_channels=tap.out_channels,
+                                            num_layers=tap.num_layers,
+                                            hidden_channels=tap.hidden_channels,
+                                            use_end_activation=tap.use_end_activation # should generally be False
+                                        )
+                self.unc_taps_by_block.setdefault(tap.block_idx, []).append(tap)
+
+    def _add_unc_outputs(self, unc_outputs, block_idx, x):
+        if not self.uncertainty_enabled:
+            return None
+
+        taps = self.unc_taps_by_block.get(block_idx, [])
+        for tap in taps:
+            detach = self.uncertainty_spec.detach_features if tap.detach is None else tap.detach
+            x_unc = x.detach() if detach else x
+            if block_idx < 5: # input to block 5 is already unpadded
+                x_unc = self._unpad(x_unc)
+
+            out = self.unc_heads[tap.name](x_unc)
+            unc_outputs.append(out)
+
+    def _aggregate_unc_outputs(self, unc_outputs, block_idx):
+        if len(unc_outputs) == 0:
+            raise RuntimeError("return_uncertainty=True but no uncertainty taps" \
+            " are enabled")
+
+        stacked = torch.cat(unc_outputs, dim=-1)
+        last_tap = self.unc_taps_by_block.get(block_idx, [])
+        if len(last_tap) != 1:
+            raise RuntimeError("Exactly one final uncertainty tap is required")
+        last_tap = last_tap[0]
+        detach = self.uncertainty_spec.detach_features if last_tap.detach is None else last_tap.detach
+        stacked_unc = stacked.detach() if detach else stacked
+
+        log_sigma = self.unc_heads[last_tap.name](stacked_unc)
+
+        if self.uncertainty_spec.clamp_log_sigma:
+            if self.uncertainty_spec.min_log_sigma is None and self.uncertainty_spec.max_log_sigma is None:
+                raise ValueError("Invalid uncertainty spec. " \
+                "Tried to clamp log sigma with both min_log_sigma " \
+                "and max_log_sigma = None")
+            log_sigma = torch.clamp(
+                log_sigma,
+                min=self.uncertainty_spec.min_log_sigma,
+                max=self.uncertainty_spec.max_log_sigma,
+            )
+
+        return log_sigma
 
     def _linear_channel_first(self, layer, x):
         permute_to_last = [0] + list(range(2, x.dim())) + [1]
@@ -613,10 +693,11 @@ class FNOFullTrajectory(nn.Module):
         slices = [slice(None), slice(None)] + [slice(None, -self.padding)] * self.n_dims
         return x[tuple(slices)]
 
-    def forward(self, x, grid, return_features=False):
+    def forward(self, x, grid, return_features=False, return_uncertainty=False):
         # x is [batch, spatial..., time, initial_step * channels].
         # grid is [batch, spatial..., time, spatial_dim + time].
         #print("input shape: ", x.shape)
+        unc_outputs = []
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, x.dim() - 1, *range(1, x.dim() - 1))
@@ -624,6 +705,7 @@ class FNOFullTrajectory(nn.Module):
         x = self._pad(x)
 
         #print("shape after padding: ", x.shape)
+        self._add_unc_outputs(unc_outputs, 0, x)
 
         features = []
         for idx, (conv, w) in enumerate(zip(self.convs, self.ws)):
@@ -631,6 +713,7 @@ class FNOFullTrajectory(nn.Module):
             features.append(x)
             if idx < len(self.convs) - 1:
                 x = F.gelu(x)
+            self._add_unc_outputs(unc_outputs, idx + 1, x)
             #print(f"shape after Fourier block {idx}: ", x.shape)
 
         x = self._unpad(x)
@@ -638,18 +721,30 @@ class FNOFullTrajectory(nn.Module):
         #print("shape immediately before decoder layer 0: ", x.shape)
         x = self.fc1(x)
         x = F.gelu(x)
+        self._add_unc_outputs(unc_outputs, 5, x)
         #print("shape after decoder layer 0: ", x.shape)
         features.append(x)
         x = self.fc2(x)
         #print("shape after decoder layer 1: ", x.shape)
+        if return_uncertainty:
+            log_sigma = self._aggregate_unc_outputs(unc_outputs, block_idx=6)
+            return x, log_sigma
         if return_features:
             return x, features[-1]
         return x
 
 
 class FNO1dFullTrajectory(FNOFullTrajectory):
-    def __init__(self, num_channels, modes1=16, modes2=16, width=64, initial_step=1, padding=2):
-        super(FNO1dFullTrajectory, self).__init__(num_channels, 2, (modes1, modes2), width, initial_step, padding)
+    def __init__(self, num_channels, modes1=16, modes2=16, width=64, 
+                 initial_step=1, padding=2, 
+                 uncertainty_spec: UncertaintySpec | None = None):
+        super(FNO1dFullTrajectory, self).__init__(num_channels, 
+                                                  2, 
+                                                  (modes1, modes2), 
+                                                  width, 
+                                                  initial_step, 
+                                                  padding,
+                                                  uncertainty_spec=uncertainty_spec)
 
 
 class FNO2dFullTrajectory(FNOFullTrajectory):

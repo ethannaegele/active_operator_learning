@@ -6,7 +6,7 @@ import torch.nn as nn
 from omegaconf import OmegaConf
 
 from al4pde.models.fno_wrapper import build_uncertainty_spec
-from al4pde.modules.fno import FNO1d
+from al4pde.modules.fno import FNO1d, FNO1dFullTrajectory
 from al4pde.prob_models.build_prob_model import build_prob_model
 from al4pde.prob_models.mean_unc_internal import MeanUnc
 
@@ -120,6 +120,61 @@ class DummyInternalWrapper(nn.Module):
             step = self.model(pred)
             pred = torch.cat((pred, step), dim=-2)
         return pred
+
+    def one_step_pred(self, yy, grid, param, t_idx=None):
+        return yy
+
+    def reduce_input_res(self, xx, grid):
+        return xx, grid
+
+
+class TinyFullTrajectoryMeanUncModule(nn.Module):
+    def __init__(self, traj_len):
+        super().__init__()
+        self.mean_weight = nn.Parameter(torch.tensor(0.25))
+        self.log_sigma = nn.Parameter(torch.zeros(1, traj_len, 1))
+
+    def forward(self, xx, traj_len):
+        base = xx[..., :1, :]
+        return self.mean_weight * base.repeat(*([1] * (xx.dim() - 2) + [traj_len, 1]))
+
+
+class DummyFullTrajectoryInternalWrapper(nn.Module):
+    predicts_full_trajectory = True
+
+    def __init__(self, train_loader=None, traj_len=3):
+        super().__init__()
+        self.model = TinyFullTrajectoryMeanUncModule(traj_len)
+        self.loss = DummyLoss()
+        self.task_norm = None
+        self.first_iter_nb = len(train_loader) if train_loader is not None else 1
+        self._train_loader = train_loader
+        self._val_loader = []
+        self.train_loader_full_traj = train_loader
+        self.traj_len = traj_len
+
+    @property
+    def train_loader(self):
+        return self._train_loader
+
+    @property
+    def val_loader(self):
+        return self._val_loader
+
+    def init_training(self, al_iter, load_train_data=True, warm_start_model_state=None):
+        if warm_start_model_state is not None:
+            self.model.load_state_dict(warm_start_model_state)
+
+    def forward_mean_unc(self, xx, grid, pde_param=None, t_idx=None):
+        mean = self.model(xx, self.traj_len)
+        log_sigma = self.model.log_sigma.expand(xx.shape[0], -1, -1)
+        return mean, log_sigma
+
+    def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
+        return self.model(xx, self.traj_len)
+
+    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
+        return self.model(xx, final_step)
 
     def one_step_pred(self, yy, grid, param, t_idx=None):
         return yy
@@ -252,6 +307,70 @@ class MeanUncInternalTest(unittest.TestCase):
         self.assertIsNotNone(model.unc_heads["block1"].fcs.fc_layers[0].weight.grad)
         self.assertIsNotNone(model.unc_heads["last"].fc_layers[0].weight.grad)
 
+    def test_full_trajectory_fno_returns_timewise_log_sigma(self):
+        spec = build_uncertainty_spec(OmegaConf.create({
+            "enabled": True,
+            "detach_features": False,
+            "taps": [
+                {
+                    "name": "block1",
+                    "enabled": True,
+                    "block_idx": 1,
+                    "head": {
+                        "in_channels": 4,
+                        "hidden_channels": 5,
+                        "out_channels": 3,
+                        "num_layers": 1,
+                    },
+                },
+                {
+                    "name": "block5",
+                    "enabled": True,
+                    "block_idx": 5,
+                    "head": {
+                        "in_channels": 128,
+                        "hidden_channels": 5,
+                        "out_channels": 3,
+                        "num_layers": 1,
+                        "make_channel_first_input": True,
+                    },
+                },
+                {
+                    "name": "last",
+                    "enabled": True,
+                    "block_idx": 6,
+                    "head": {
+                        "hidden_channels": 5,
+                        "out_channels": 1,
+                        "num_layers": 1,
+                        "use_end_activation": False,
+                    },
+                },
+            ],
+        }))
+        model = FNO1dFullTrajectory(
+            num_channels=1,
+            modes1=2,
+            modes2=2,
+            width=4,
+            initial_step=1,
+            padding=2,
+            uncertainty_spec=spec,
+        )
+        xx = torch.randn(2, 8, 5, 1)
+        grid_x = torch.linspace(0, 1, 8).reshape(1, 8, 1, 1).repeat(2, 1, 5, 1)
+        grid_t = torch.linspace(0, 1, 5).reshape(1, 1, 5, 1).repeat(2, 8, 1, 1)
+        grid = torch.cat((grid_x, grid_t), dim=-1)
+
+        mean, log_sigma = model(xx, grid, return_uncertainty=True)
+        loss = mean.mean() + log_sigma.mean()
+        loss.backward()
+
+        self.assertEqual(mean.shape, (2, 8, 5, 1))
+        self.assertEqual(log_sigma.shape, (2, 5, 1))
+        self.assertIsNotNone(model.unc_heads["block1"].fcs.fc_layers[0].weight.grad)
+        self.assertIsNotNone(model.unc_heads["last"].fc_layers[0].weight.grad)
+
     def test_uncertainty_expands_log_sigma_to_one_step_mean_shape(self):
         wrapper = DummyInternalWrapper()
         model = make_mean_unc(wrapper)
@@ -264,11 +383,38 @@ class MeanUncInternalTest(unittest.TestCase):
         self.assertEqual(log_sigma.shape, mean.shape)
         self.assertTrue(torch.equal(log_sigma, torch.zeros_like(mean)))
 
+    def test_full_trajectory_uncertainty_expands_timewise_log_sigma_to_mean_shape(self):
+        wrapper = DummyFullTrajectoryInternalWrapper(traj_len=3)
+        model = make_mean_unc(wrapper, training_type="full_trajectory")
+        xx = torch.ones(2, 4, 1, 1)
+        grid = torch.zeros(2, 4, 1)
+
+        mean, log_sigma = model.uncertainty(xx, grid, pde_param=torch.zeros(2, 1), t_idx=torch.zeros(2))
+
+        self.assertEqual(mean.shape, (2, 4, 3, 1))
+        self.assertEqual(log_sigma.shape, mean.shape)
+        self.assertTrue(torch.equal(log_sigma, torch.zeros_like(mean)))
+
     def test_unc_roll_out_returns_sigma_and_zero_initial_uncertainty(self):
         wrapper = DummyInternalWrapper()
         with torch.no_grad():
             wrapper.model.log_sigma.fill_(torch.log(torch.tensor(2.0)))
         model = make_mean_unc(wrapper)
+        xx = torch.ones(2, 4, 1, 1)
+        grid = torch.zeros(2, 4, 1)
+
+        pred, unc = model.unc_roll_out(xx, grid, final_step=3, pde_param=torch.zeros(2, 1), t_idx=torch.zeros(2))
+
+        self.assertEqual(pred.shape, (2, 4, 3, 1))
+        self.assertEqual(unc.shape, pred.shape)
+        self.assertTrue(torch.equal(unc[..., :1, :], torch.zeros_like(unc[..., :1, :])))
+        self.assertTrue(torch.allclose(unc[..., 1:, :], torch.full_like(unc[..., 1:, :], 2.0)))
+
+    def test_full_trajectory_unc_roll_out_returns_sigma_and_zero_initial_uncertainty(self):
+        wrapper = DummyFullTrajectoryInternalWrapper(traj_len=4)
+        with torch.no_grad():
+            wrapper.model.log_sigma.fill_(torch.log(torch.tensor(2.0)))
+        model = make_mean_unc(wrapper, training_type="full_trajectory")
         xx = torch.ones(2, 4, 1, 1)
         grid = torch.zeros(2, 4, 1)
 
@@ -302,6 +448,28 @@ class MeanUncInternalTest(unittest.TestCase):
         self.assertEqual(model.scheduler.num_steps, 1)
         self.assertEqual([t.tolist() for t in wrapper.t_idx_seen], [[0.0, 0.0], [1.0, 1.0]])
 
+    def test_full_trajectory_training_step_updates_mean_and_uncertainty_parameters(self):
+        xx = torch.ones(2, 4, 1, 1)
+        yy = torch.ones(2, 4, 3, 1) * 2.0
+        grid = torch.zeros(2, 4, 1)
+        pde_param = torch.zeros(2, 1)
+        t_idx = torch.zeros(2)
+        train_loader = [(xx, yy, grid, pde_param, t_idx)]
+        wrapper = DummyFullTrajectoryInternalWrapper(train_loader, traj_len=3)
+        model = make_mean_unc(wrapper, training_type="full_trajectory")
+        model.init_training(al_iter=0)
+
+        mean_before = wrapper.model.mean_weight.detach().clone()
+        log_sigma_before = wrapper.model.log_sigma.detach().clone()
+
+        model.train_single_epoch(current_epoch=1, total_epoch=1, num_epoch=2)
+
+        self.assertIsNotNone(wrapper.model.mean_weight.grad)
+        self.assertIsNotNone(wrapper.model.log_sigma.grad)
+        self.assertFalse(torch.equal(wrapper.model.mean_weight.detach(), mean_before))
+        self.assertFalse(torch.equal(wrapper.model.log_sigma.detach(), log_sigma_before))
+        self.assertEqual(model.scheduler.num_steps, 1)
+
     def test_build_prob_model_mean_unc_internal_uses_nested_wrapper(self):
         train_loader = [(torch.ones(1, 4, 1, 1), torch.ones(1, 4, 2, 1), torch.zeros(1, 4, 1),
                          torch.zeros(1, 1), torch.zeros(1))]
@@ -322,6 +490,7 @@ class MeanUncInternalTest(unittest.TestCase):
                 "step_batch": -1,
                 "optimizer": {"_target_": "torch.optim.SGD", "lr": 0.1},
                 "scheduler": {"_target_": "torch.optim.lr_scheduler.StepLR", "step_size": 100},
+                "model": {"if_conditional": True},
             },
             "unc_model": {"if_conditional": True},
         })
