@@ -1,0 +1,99 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run k8lqgjj2
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260802_002646-k8lqgjj2
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run burgers_fno_mean_unc_internal_power_acq_test_run
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/k8lqgjj2
+wandb: updating run metadata
+wandb: 🚀 View run burgers_fno_mean_unc_internal_power_acq_test_run at: https://wandb.ai/enaegele500-none/al4pde/runs/k8lqgjj2
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260802_002646-k8lqgjj2/logs
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 120, in main
+    prob_model.train_n_epoch(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_internal.py", line 420, in train_n_epoch
+    self.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_internal.py", line 232, in init_training
+    self.model_wrapper.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/wrapper.py", line 54, in init_training
+    self.model = self.model_factory().to(device)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/fno_wrapper.py", line 355, in build_model
+    uncertainty_spec = build_uncertainty_spec(cfg.get("uncertainty", None))
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/fno_wrapper.py", line 442, in build_uncertainty_spec
+    out_channels=head.get("out_channels", 128),
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/dictconfig.py", line 434, in get
+    return self._get_impl(key=key, default_value=default_value)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/dictconfig.py", line 451, in _get_impl
+    return self._resolve_with_default(
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/basecontainer.py", line 98, in _resolve_with_default
+    resolved_node = self._maybe_resolve_interpolation(
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/base.py", line 719, in _maybe_resolve_interpolation
+    return self._resolve_interpolation_from_parse_tree(
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/base.py", line 584, in _resolve_interpolation_from_parse_tree
+    resolved = self.resolve_parse_tree(
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/base.py", line 764, in resolve_parse_tree
+    return visitor.visit(parse_tree)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/antlr4/tree/Tree.py", line 34, in visit
+    return tree.accept(self)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar/gen/OmegaConfGrammarParser.py", line 206, in accept
+    return visitor.visitConfigValue(self)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar_visitor.py", line 101, in visitConfigValue
+    return self.visit(ctx.getChild(0))
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/antlr4/tree/Tree.py", line 34, in visit
+    return tree.accept(self)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar/gen/OmegaConfGrammarParser.py", line 342, in accept
+    return visitor.visitText(self)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar_visitor.py", line 298, in visitText
+    return self.visitInterpolation(c)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar_visitor.py", line 125, in visitInterpolation
+    return self.visit(ctx.getChild(0))
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/antlr4/tree/Tree.py", line 34, in visit
+    return tree.accept(self)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar/gen/OmegaConfGrammarParser.py", line 921, in accept
+    return visitor.visitInterpolationNode(self)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/grammar_visitor.py", line 158, in visitInterpolationNode
+    return self.node_interpolation_callback(inter_key, self.memo)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/base.py", line 745, in node_interpolation_callback
+    return self._resolve_node_interpolation(inter_key=inter_key, memo=memo)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/omegaconf/base.py", line 676, in _resolve_node_interpolation
+    raise InterpolationKeyError(f"Interpolation key '{inter_key}' not found")
+Error executing job with overrides: ['+experiment=burgers', '+experiment/sub_exp=power', 'acquisition/data_schedule=linear', 'prob_model=mean_unc_internal', 'prob_model/model_wrapper=fno_mean_unc_internal', 'prob_model.model_wrapper.training_type=autoregressive', 'task.data_gen.num_initial_batches=1', 'task.data_gen.batch_size=2', 'acquisition.batch_size=2', 'num_al_iter=2', 'num_epochs=3', 'prob_model.model_wrapper.batch_size=2', 'wandb.name=burgers_fno_mean_unc_internal_power_acq_test_run', 'warm_start_weights=True', 'hydra=base']
+Traceback (most recent call last):
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 19, in main
+    raise ex
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 120, in main
+    prob_model.train_n_epoch(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_internal.py", line 420, in train_n_epoch
+    self.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_internal.py", line 232, in init_training
+    self.model_wrapper.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/wrapper.py", line 54, in init_training
+    self.model = self.model_factory().to(device)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/fno_wrapper.py", line 355, in build_model
+    uncertainty_spec = build_uncertainty_spec(cfg.get("uncertainty", None))
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/fno_wrapper.py", line 442, in build_uncertainty_spec
+    out_channels=head.get("out_channels", 128),
+omegaconf.errors.InterpolationKeyError: Interpolation key 'task.num_channels' not found
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

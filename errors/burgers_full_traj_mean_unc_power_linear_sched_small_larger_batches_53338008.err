@@ -1,0 +1,73 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run l78ixit4
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260711_183053-l78ixit4
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run burgers_full_traj_mean_unc_power_acq_5_iter_500_epochs_500_batch_linear_sched_16_hidden_silu
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/l78ixit4
+2026-07-11 18:30:56.805993: W external/xla/xla/service/hlo_rematerialization.cc:2948] Can't reduce memory use below 1.13GiB (1215179390 bytes) by rematerialization; only reduced to 1.54GiB (1648650064 bytes), down from 1.54GiB (1648650064 bytes) originally
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+wandb: updating run metadata
+wandb: uploading output.log
+wandb: 
+wandb: Run history:
+wandb:             al/BD █▅▃▂▁
+wandb:            al/CSV █▃▁▃▂
+wandb:            al/Max █▅▃▂▁
+wandb:           al/RMSE █▅▄▂▁
+wandb:    al/acq_avg_unc █▄▂▁
+wandb:        al/al_iter ▁▁▁▁▁▃▃▃▃▃▅▅▅▅▅▆▆▆▆▆██
+wandb:     al/c_norm_mse █▅▃▂▁
+wandb:  al/eval_num_data ▁▃▅▆█
+wandb:  al/frame_rel_mse █▄▂▁▁
+wandb: al/iter_wall_time ▁▃▄▆█
+wandb:              +135 ...
+wandb: 
+wandb: Run summary:
+wandb:             al/BD 0.01848
+wandb:            al/CSV 0.00296
+wandb:            al/Max 0.56165
+wandb:           al/RMSE 0.02485
+wandb:    al/acq_avg_unc 0.06878
+wandb:        al/al_iter 4
+wandb:     al/c_norm_mse 0.00453
+wandb:  al/eval_num_data 2500
+wandb:  al/frame_rel_mse 0.01439
+wandb: al/iter_wall_time 3294.83269
+wandb:              +138 ...
+wandb: 
+wandb: 🚀 View run burgers_full_traj_mean_unc_power_acq_5_iter_500_epochs_500_batch_linear_sched_16_hidden_silu at: https://wandb.ai/enaegele500-none/al4pde/runs/l78ixit4
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260711_183053-l78ixit4/logs

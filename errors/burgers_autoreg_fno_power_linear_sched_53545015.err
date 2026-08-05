@@ -1,0 +1,112 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run j2ebwuc3
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260714_204941-j2ebwuc3
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run burgers_autoreg_fno_power_acq_10_iter_300_epochs_linear_sched
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/j2ebwuc3
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+wandb: updating run metadata
+wandb: uploading history steps 641-641, summary
+wandb: 
+wandb: Run history:
+wandb:                     al/BD █▄▃▂▂▂▁▁▁▁
+wandb:                    al/CSV █▃▂▂▂▁▁▁▁▁
+wandb:                    al/Max █▆▄▄▃▂▂▁▁▁
+wandb:                   al/RMSE █▄▃▂▂▁▁▁▁▁
+wandb:            al/acq_avg_unc █▂▁▁▁▁▁▁▁
+wandb:                al/al_iter ▁▁▁▁▁▂▂▂▂▃▃▃▃▃▃▃▃▄▄▄▄▄▅▅▅▅▆▆▆▆▆▆▆▆▇▇▇▇▇█
+wandb:             al/c_norm_mse █▂▁▁▁▁▁▁▁▁
+wandb:  al/corr_unc_loss_pearson ▅█▅▄▂▁▃▇▃▁
+wandb: al/corr_unc_loss_spearman █▄▁▃▄▂▂▂▂▃
+wandb:   al/cumulative_wall_time ▁▁▂▂▃▄▅▆▇█
+wandb:                      +151 ...
+wandb: 
+wandb: Run summary:
+wandb:                     al/BD 0.00203
+wandb:                    al/CSV 0.00161
+wandb:                    al/Max 0.37147
+wandb:                   al/RMSE 0.00282
+wandb:            al/acq_avg_unc 7e-05
+wandb:                al/al_iter 9
+wandb:             al/c_norm_mse 4e-05
+wandb:  al/corr_unc_loss_pearson 0.22107
+wandb: al/corr_unc_loss_spearman 0.78089
+wandb:   al/cumulative_wall_time 36744.73989
+wandb:                      +154 ...
+wandb: 
+wandb: 🚀 View run burgers_autoreg_fno_power_acq_10_iter_300_epochs_linear_sched at: https://wandb.ai/enaegele500-none/al4pde/runs/j2ebwuc3
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260714_204941-j2ebwuc3/logs

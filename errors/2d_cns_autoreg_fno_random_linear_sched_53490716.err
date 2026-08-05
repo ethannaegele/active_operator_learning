@@ -1,0 +1,130 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run iz7y7dvo
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260714_050901-iz7y7dvo
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 2d_cns_autoreg_fno_random_acq_10_iter_500_epochs_linear_sched
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/iz7y7dvo
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:129: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  return {self.name + "_pearson": pearsonr(all_unc, all_mse).statistic,
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/stats.py:130: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+  self.name + "_spearman": spearmanr(all_unc, all_mse).statistic}
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:280: UserWarning: Data has no positive values, and therefore cannot be log-scaled.
+  ax.set_yscale('log')
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+[2026-07-15T11:08:42.005] error: *** JOB 53490716 ON gl1012 CANCELLED AT 2026-07-15T11:08:42 DUE TO TIME LIMIT ***

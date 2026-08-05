@@ -29,6 +29,8 @@ module list
 
 ####  Commands your job should run follow this line
 
+cd /scratch/tewaria_root/tewaria0/enaegele/active_operator_learning
+
 echo "Running on $SLURM_JOB_NODELIST"
 echo "Running in $(pwd)"
 

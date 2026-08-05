@@ -1,0 +1,64 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run qetn7hy2
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260709_172405-qetn7hy2
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run test_run_cluster_multi_epoch
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/qetn7hy2
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+wandb: updating run metadata
+wandb: uploading history steps 25-25, summary
+wandb: 
+wandb: Run history:
+wandb:                     al/BD █▁▁
+wandb:                    al/CSV █▁▁
+wandb:                    al/Max █▁▁
+wandb:                   al/RMSE █▁▁
+wandb:            al/acq_avg_unc █▁
+wandb:                al/al_iter ▁▁▁▁▁▅▅▅▅▅██
+wandb:             al/c_norm_mse █▁▁
+wandb:  al/corr_unc_loss_pearson █▁▁
+wandb: al/corr_unc_loss_spearman █▁▂
+wandb:          al/eval_num_data ▁▃█
+wandb:                      +150 ...
+wandb: 
+wandb: Run summary:
+wandb:                     al/BD 0.51431
+wandb:                    al/CSV 0.55562
+wandb:                    al/Max 0.88757
+wandb:                   al/RMSE 0.53236
+wandb:            al/acq_avg_unc 0.00757
+wandb:                al/al_iter 2
+wandb:             al/c_norm_mse 2.9634
+wandb:  al/corr_unc_loss_pearson -0.06055
+wandb: al/corr_unc_loss_spearman -0.01054
+wandb:          al/eval_num_data 8
+wandb:                      +153 ...
+wandb: 
+wandb: 🚀 View run test_run_cluster_multi_epoch at: https://wandb.ai/enaegele500-none/al4pde/runs/qetn7hy2
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260709_172405-qetn7hy2/logs

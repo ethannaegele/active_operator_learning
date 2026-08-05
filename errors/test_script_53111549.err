@@ -1,0 +1,68 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run pd2az7qz
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260708_125609-pd2az7qz
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run test_run_cluster_sbat_base
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/pd2az7qz
+wandb: updating run metadata
+wandb: uploading summary, console lines 7-23
+wandb: 🚀 View run test_run_cluster_sbat_base at: https://wandb.ai/enaegele500-none/al4pde/runs/pd2az7qz
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260708_125609-pd2az7qz/logs
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 118, in main
+    prob_model.train_n_epoch(al_iter, num_epoch, num_epoch * al_iter, is_last=is_last, warm_start_model_states=prev_model_states)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_model.py", line 338, in train_n_epoch
+    self.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_model.py", line 192, in init_training
+    self.mean_model.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/wrapper.py", line 87, in init_training
+    val_data = NPYDataset(
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/dataloader.py", line 119, in __init__
+    fdata_list, pde_param_list, grid = self.load_data_list(folders, regexp, max_size, pde_name)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/dataloader.py", line 146, in load_data_list
+    grid, spatial_dim = load_grid(folders, self.reduced_resolution)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/dataloader.py", line 40, in load_grid
+    raise IOError("no grid found in folders" , folders)
+Error executing job with overrides: ['+experiment=burgers', '+experiment/sub_exp=power', 'prob_model/model_wrapper=fno', 'prob_model=mean_unc', 'prob_model.unc_model.hidden_units=16', 'prob_model.unc_model.traj_len=41', 'acquisition.batch_size=2', 'task.data_gen.num_initial_batches=1', 'task.data_gen.batch_size=2', 'num_epochs=2', 'num_al_iter=1', 'prob_model.model_wrapper.batch_size=2', 'wandb.name=test_run_cluster_sbat_base', 'hydra=base']
+Traceback (most recent call last):
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 19, in main
+    raise ex
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 118, in main
+    prob_model.train_n_epoch(al_iter, num_epoch, num_epoch * al_iter, is_last=is_last, warm_start_model_states=prev_model_states)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_model.py", line 338, in train_n_epoch
+    self.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/mean_unc_model.py", line 192, in init_training
+    self.mean_model.init_training(al_iter,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/wrapper.py", line 87, in init_training
+    val_data = NPYDataset(
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/dataloader.py", line 119, in __init__
+    fdata_list, pde_param_list, grid = self.load_data_list(folders, regexp, max_size, pde_name)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/dataloader.py", line 146, in load_data_list
+    grid, spatial_dim = load_grid(folders, self.reduced_resolution)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/dataloader.py", line 40, in load_grid
+    raise IOError("no grid found in folders" , folders)
+OSError: [Errno no grid found in folders] ['data/data/Burgers/val']
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

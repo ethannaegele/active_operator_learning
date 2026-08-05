@@ -1,0 +1,37 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run tcdoj8tw
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260714_043828-tcdoj8tw
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run 2d_cns_autoreg_fno_power_acq_10_iter_500_epochs_linear_sched
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/tcdoj8tw
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/visualization.py:459: UserWarning: Attempting to set identical low and high xlims makes transformation singular; automatically expanding.
+  ax.set_xlim([x_min, x_max])
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/var/spool/slurmd.spool/job53485633/slurm_script: line 63: 35429 Killed                  python -m scripts.al_submitit -m +experiment=2dcfd_fno +experiment/sub_exp=power acquisition/data_schedule=linear prob_model/model_wrapper=fno prob_model.model_wrapper.training_type=teacher_forcing_schedule prob_model.unc_roll_out_mode=independent task.data_gen.num_initial_batches=10 task.data_gen.batch_size=20 num_al_iter=10 num_epochs=500 prob_model.model_wrapper.batch_size=16 wandb.name=2d_cns_autoreg_fno_power_acq_10_iter_500_epochs_linear_sched hydra=base
+[2026-07-14T11:57:52.056] error: Detected 1 oom_kill event in StepId=53485633.batch. Some of the step tasks have been OOM Killed.

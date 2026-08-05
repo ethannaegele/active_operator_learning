@@ -1,0 +1,131 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run d9mbwxs5
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260717_042857-d9mbwxs5
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run burgers_autoreg_fno_time_power_acq_10_iter_500_epochs_100_sel_epochs_linear_sched
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/d9mbwxs5
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+wandb: updating run metadata
+wandb: uploading history steps 94-95, summary, console lines 797-819
+wandb: 
+wandb: Run history:
+wandb:                    al/al_iter ▁
+wandb:       al/cumulative_wall_time ▁
+wandb:             al/iter_wall_time ▁
+wandb:                   al/num_data ▁
+wandb:                 al/train_time ▁
+wandb:         ens_member_0/avg_grad █▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▅▁▁▁▁
+wandb:        ens_member_0/grad_norm █▁▂▂▁▂▁▁▁▁▁▁▁▁▂▁▁▁▁▁▁▁▁▁▁▅▁▁▁▁
+wandb:               ens_member_0/lr █████▇▇▇▆▆▆▅▅▄▄▃▃▃▂▂▂▁▁▁▁█████
+wandb:         ens_member_0/max_grad █▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▃▁▁▁▁
+wandb: ens_member_0/norm_cap_counter ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:                          +142 ...
+wandb: 
+wandb: Run summary:
+wandb:                    al/al_iter 0
+wandb:       al/cumulative_wall_time 1134.42026
+wandb:             al/iter_wall_time 763.92435
+wandb:                   al/num_data 200
+wandb:                 al/train_time 97.47302
+wandb:         ens_member_0/avg_grad 5e-05
+wandb:        ens_member_0/grad_norm 0.00235
+wandb:               ens_member_0/lr 0.00097
+wandb:         ens_member_0/max_grad 0.00182
+wandb: ens_member_0/norm_cap_counter 0
+wandb:                          +146 ...
+wandb: 
+wandb: 🚀 View run burgers_autoreg_fno_time_power_acq_10_iter_500_epochs_100_sel_epochs_linear_sched at: https://wandb.ai/enaegele500-none/al4pde/runs/d9mbwxs5
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260717_042857-d9mbwxs5/logs
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/time_al_submitit.py", line 11, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_al_time.py", line 162, in main
+    acq_strat.generate(sel_model, al_iter, sel_model.train_loader_full_traj)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/pool_based.py", line 77, in generate
+    sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/uncertainty_based.py", line 47, in select_next
+    unc_batch = self.model_uncertainty(prob_model, ic, grid_batch, pde_param).detach().cpu()
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/batch_selection.py", line 77, in model_uncertainty
+    _, unc = prob_model.unc_roll_out(x, grid, self.unc_num_rollout_steps, pde_param=pde_params, t_idx=t_idx)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 100, in unc_roll_out
+    return self.unc_independent_rollout(xx, grid, final_step, pde_param, t_idx, return_features)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 125, in unc_independent_rollout
+    out = self._roll_out_all(xx, grid, final_step, pde_param, t_idx, return_features)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in _roll_out_all
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in <listcomp>
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/model.py", line 92, in roll_out
+    im = self(xx, grid, param, t_idx + t - self.initial_step, return_features)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/fno_wrapper.py", line 185, in forward
+    out = self.model(xx, grid)[..., :-pde_param.shape[-1]]
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/modules/fno.py", line 145, in forward
+    x = F.gelu(x)
+Error executing job with overrides: ['+experiment=burgers_time', 'acquisition/data_schedule=linear', 'prob_model/model_wrapper=fno', 'prob_model.unc_roll_out_mode=independent', 'task.data_gen.num_initial_batches=1', 'task.data_gen.batch_size=200', 'acquisition.batch_size=200', 'num_al_iter=10', 'num_epochs=500', 'num_epochs_sel=100', 'wandb.name=burgers_autoreg_fno_time_power_acq_10_iter_500_epochs_100_sel_epochs_linear_sched', 'warm_start_weights=True', 'hydra=base']
+Traceback (most recent call last):
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/time_al_submitit.py", line 18, in main
+    raise ex
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/time_al_submitit.py", line 11, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_al_time.py", line 162, in main
+    acq_strat.generate(sel_model, al_iter, sel_model.train_loader_full_traj)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/pool_based.py", line 77, in generate
+    sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/uncertainty_based.py", line 47, in select_next
+    unc_batch = self.model_uncertainty(prob_model, ic, grid_batch, pde_param).detach().cpu()
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/batch_selection.py", line 77, in model_uncertainty
+    _, unc = prob_model.unc_roll_out(x, grid, self.unc_num_rollout_steps, pde_param=pde_params, t_idx=t_idx)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 100, in unc_roll_out
+    return self.unc_independent_rollout(xx, grid, final_step, pde_param, t_idx, return_features)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 125, in unc_independent_rollout
+    out = self._roll_out_all(xx, grid, final_step, pde_param, t_idx, return_features)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in _roll_out_all
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in <listcomp>
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/model.py", line 92, in roll_out
+    im = self(xx, grid, param, t_idx + t - self.initial_step, return_features)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/fno_wrapper.py", line 185, in forward
+    out = self.model(xx, grid)[..., :-pde_param.shape[-1]]
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/modules/fno.py", line 145, in forward
+    x = F.gelu(x)
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 4.00 GiB. GPU 0 has a total capacity of 15.77 GiB of which 3.58 GiB is free. Including non-PyTorch memory, this process has 12.18 GiB memory in use. Of the allocated memory 8.15 GiB is allocated by PyTorch, and 2.03 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

@@ -1,0 +1,103 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run ck84mh2j
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260717_022114-ck84mh2j
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run burgers_autoreg_fno_bait_acq_10_iter_300_epochs_linear_sched
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/ck84mh2j
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+wandb: updating run metadata
+wandb: uploading history steps 45-45, summary, console lines 362-367
+wandb: 
+wandb: Run history:
+wandb:                    al/al_iter ▁
+wandb:       al/cumulative_wall_time ▁
+wandb:             al/iter_wall_time ▁
+wandb:                   al/num_data ▁
+wandb:         ens_member_0/avg_grad █▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:        ens_member_0/grad_norm █▁▂▁▁▂▁▁▁▁▁▁▁▁▁
+wandb:               ens_member_0/lr ███▇▇▆▅▅▄▃▃▂▂▁▁
+wandb:         ens_member_0/max_grad █▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: ens_member_0/norm_cap_counter ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:         ens_member_0/norm_max █▂▂▂▂▁▂▁▁▁▁▁▁▁▁
+wandb:                           +68 ...
+wandb: 
+wandb: Run summary:
+wandb:                    al/al_iter 0
+wandb:       al/cumulative_wall_time 712.92807
+wandb:             al/iter_wall_time 343.02291
+wandb:                   al/num_data 200
+wandb:         ens_member_0/avg_grad 0.0
+wandb:        ens_member_0/grad_norm 0.0004
+wandb:               ens_member_0/lr 2e-05
+wandb:         ens_member_0/max_grad 0.00033
+wandb: ens_member_0/norm_cap_counter 0
+wandb:         ens_member_0/norm_max 0.00174
+wandb:                           +70 ...
+wandb: 
+wandb: 🚀 View run burgers_autoreg_fno_bait_acq_10_iter_300_epochs_linear_sched at: https://wandb.ai/enaegele500-none/al4pde/runs/ck84mh2j
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260717_022114-ck84mh2j/logs
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 133, in main
+    acq_strat.generate(prob_model, al_iter, prob_model.train_loader_full_traj)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/pool_based.py", line 77, in generate
+    sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/distance_pool_based.py", line 174, in select_next
+    train_features = self.create_features_train(train_loader, prob_model)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/distance_pool_based.py", line 153, in create_features_train
+    out = prob_model.roll_out(xx, grid, self.num_rollout_steps, pde_param, t_idx=t_idx,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 206, in roll_out
+    out, feat = self._roll_out_all(xx, grid, final_step, pde_param, t_idx, return_features)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in _roll_out_all
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in <listcomp>
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/model.py", line 99, in roll_out
+    return pred, torch.concat(features, dim=-2)
+Error executing job with overrides: ['+experiment=burgers', '+experiment/sub_exp=bait', 'acquisition/data_schedule=linear', 'prob_model/model_wrapper=fno', 'prob_model.model_wrapper.training_type=autoregressive', 'prob_model.unc_roll_out_mode=independent', 'task.data_gen.num_initial_batches=1', 'task.data_gen.batch_size=200', 'acquisition.batch_size=200', 'num_al_iter=10', 'num_epochs=300', 'prob_model.model_wrapper.batch_size=512', 'wandb.name=burgers_autoreg_fno_bait_acq_10_iter_300_epochs_linear_sched', 'warm_start_weights=True', 'hydra=base']
+Traceback (most recent call last):
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 19, in main
+    raise ex
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 133, in main
+    acq_strat.generate(prob_model, al_iter, prob_model.train_loader_full_traj)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/pool_based.py", line 77, in generate
+    sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/distance_pool_based.py", line 174, in select_next
+    train_features = self.create_features_train(train_loader, prob_model)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/distance_pool_based.py", line 153, in create_features_train
+    out = prob_model.roll_out(xx, grid, self.num_rollout_steps, pde_param, t_idx=t_idx,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 206, in roll_out
+    out, feat = self._roll_out_all(xx, grid, final_step, pde_param, t_idx, return_features)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in _roll_out_all
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/prob_models/ensemble.py", line 197, in <listcomp>
+    b_m_out = [b.roll_out(xx, grid, final_step, pde_param, t_idx, return_features) for b in self.base_models]
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/models/model.py", line 99, in roll_out
+    return pred, torch.concat(features, dim=-2)
+TypeError: expected Tensor as element 0 in argument 0, but got list
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

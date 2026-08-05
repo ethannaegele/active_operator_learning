@@ -1,0 +1,91 @@
+
+Currently Loaded Modules:
+  1) mamba/py3.12
+
+ 
+
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:218: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/tensordict/_pytree.py:237: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  register_pytree_node(
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: enaegele500 (enaegele500-none) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run rpam6fkk
+wandb: Tracking run with wandb version 0.28.0
+wandb: Run data is saved locally in /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/wandb/run-20260709_165846-rpam6fkk
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run test_run_cluster_multi_epoch
+wandb: ⭐️ View project at https://wandb.ai/enaegele500-none/al4pde
+wandb: 🚀 View run at https://wandb.ai/enaegele500-none/al4pde/runs/rpam6fkk
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+/home/enaegele/active_operator_learning/external/pdearena/pdearena/lr_scheduler.py:44: UserWarning: To get the last learning rate computed by the scheduler, please use `get_last_lr()`.
+  warnings.warn(
+/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/evaluation/vis.py:93: UserWarning: No artists with labels found to put in legend.  Note that artists whose label start with an underscore are ignored when legend() is called with no argument.
+  plt.legend()
+wandb: updating run metadata
+wandb: uploading summary
+wandb: 
+wandb: Run history:
+wandb:             al/BD ▁
+wandb:            al/CSV ▁
+wandb:            al/Max ▁
+wandb:           al/RMSE ▁
+wandb:    al/acq_avg_unc ▁
+wandb:        al/al_iter ▁▁▁▁▁█
+wandb:     al/c_norm_mse ▁
+wandb:  al/eval_num_data ▁
+wandb:  al/frame_rel_mse ▁
+wandb: al/iter_wall_time █▁
+wandb:              +134 ...
+wandb: 
+wandb: Run summary:
+wandb:             al/BD 0.8257
+wandb:            al/CSV 0.92198
+wandb:            al/Max 1.33895
+wandb:           al/RMSE 0.84505
+wandb:    al/acq_avg_unc 197.33731
+wandb:        al/al_iter 1
+wandb:     al/c_norm_mse 8.69396
+wandb:  al/eval_num_data 2
+wandb:  al/frame_rel_mse 951.50537
+wandb: al/iter_wall_time 27.75417
+wandb:              +137 ...
+wandb: 
+wandb: 🚀 View run test_run_cluster_multi_epoch at: https://wandb.ai/enaegele500-none/al4pde/runs/rpam6fkk
+wandb: ⭐️ View project at: https://wandb.ai/enaegele500-none/al4pde
+wandb: Synced 5 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260709_165846-rpam6fkk/logs
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 133, in main
+    acq_strat.generate(prob_model, al_iter, prob_model.train_loader_full_traj)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/pool_based.py", line 77, in generate
+    sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/uncertainty_based.py", line 54, in select_next
+    sel_idx = power_sampling(unc, n_samples, self.power_beta)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/uncertainty_based.py", line 16, in power_sampling
+    return torch.multinomial(prob, k, replacement=False)
+Error executing job with overrides: ['+experiment=burgers', '+experiment/sub_exp=power', 'prob_model/model_wrapper=fno_full_traj', 'prob_model.model_wrapper.training_type=full_trajectory', 'prob_model=mean_unc', 'prob_model.unc_model.hidden_units=16', 'prob_model.model_wrapper.num_train_steps=40', 'prob_model.unc_model.traj_len=41', 'acquisition.batch_size=2', 'task.data_gen.num_initial_batches=1', 'task.data_gen.batch_size=2', 'num_epochs=3', 'num_al_iter=3', 'prob_model.model_wrapper.batch_size=2', 'wandb.name=test_run_cluster_multi_epoch', 'warm_start_weights=True', 'hydra=base']
+Traceback (most recent call last):
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 19, in main
+    raise ex
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/al_submitit.py", line 12, in main
+    al_main(cfg)
+  File "/home/enaegele/.conda/envs/al-env-gpu2/lib/python3.10/site-packages/hydra/main.py", line 83, in decorated_main
+    return task_function(cfg_passthrough)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/scripts/run_active_learning.py", line 133, in main
+    acq_strat.generate(prob_model, al_iter, prob_model.train_loader_full_traj)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/pool_based.py", line 77, in generate
+    sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/uncertainty_based.py", line 54, in select_next
+    sel_idx = power_sampling(unc, n_samples, self.power_beta)
+  File "/gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning/al4pde/acquisition/uncertainty_based.py", line 16, in power_sampling
+    return torch.multinomial(prob, k, replacement=False)
+RuntimeError: probability tensor contains either `inf`, `nan` or element < 0
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

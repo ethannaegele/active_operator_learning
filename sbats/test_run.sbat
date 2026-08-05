@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=test_script
+#SBATCH --job-name=test_run_with_prints
 #SBATCH --mail-user=enaegele@umich.edu
 #SBATCH --mail-type=BEGIN,END,FAIL
 
@@ -14,10 +14,10 @@
 #SBATCH --gpus=v100:1
 #SBATCH --cpus-per-gpu=1
 ## mem is CPU memory - the GPU automatically gets the entire VRAM
-#SBATCH --mem=8GB
+#SBATCH --mem=6GB
 
 ## wall time hours:minutes:seconds
-#SBATCH --time=0:15:00
+#SBATCH --time=0:10:00
 #SBATCH --output=outputs/%x_%j.out
 #SBATCH --error=errors/%x_%j.err
 
@@ -28,6 +28,8 @@ module load mamba/py3.12
 module list
 
 ####  Commands your job should run follow this line
+
+cd /scratch/tewaria_root/tewaria0/enaegele/active_operator_learning
 
 echo "Running on $SLURM_JOB_NODELIST"
 echo "Running in $(pwd)"
@@ -47,12 +49,8 @@ python --version
 
 python -m scripts.al_submitit -m \
 +experiment=burgers \
-+experiment/sub_exp=power \
++experiment/sub_exp=random \
 prob_model/model_wrapper=fno \
-prob_model=mean_unc \
-prob_model.unc_model.hidden_units=16 \
-prob_model.unc_model.traj_len=41 \
-acquisition.batch_size=2 \
 task.data_gen.num_initial_batches=1 \
 task.data_gen.batch_size=2 \
 num_epochs=2 \
