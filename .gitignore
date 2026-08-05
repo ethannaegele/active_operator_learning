@@ -206,3 +206,5 @@ wandb/
 # Ignore external pdearena clone/subfolder
 /external/pdearena/
 
+/sbats
+/errors
