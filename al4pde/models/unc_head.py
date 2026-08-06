@@ -80,12 +80,12 @@ class GAP2dAndFC(nn.Module):
 
         self.make_channel_first_input = make_channel_first_input
         self.time_as_second_dim = time_as_second_dim
-        if time_as_second_dim:
-            # average across space X, for each time slice independently -> [T] avg values, dynamically for T
-            self.gap = nn.AdaptiveAvgPool2d((1, None)) # global average pooling
-        else:
-            # average across space X, Y -> scalar
-            self.gap = nn.AdaptiveAvgPool2d(1) # [B, C, X, Y] -> [B, C, 1, 1]
+        # if time_as_second_dim:
+        #     # average across space X, for each time slice independently -> [T] avg values, dynamically for T
+        #     self.gap = nn.AdaptiveAvgPool2d((1, None)) # global average pooling
+        # else:
+        #     # average across space X, Y -> scalar
+        #     self.gap = nn.AdaptiveAvgPool2d(1) # [B, C, X, Y] -> [B, C, 1, 1]
 
         self.fcs = FCs(in_channels, 
                        out_channels, 
@@ -97,10 +97,10 @@ class GAP2dAndFC(nn.Module):
         if self.make_channel_first_input:
             x = x.permute(0, 3, 1, 2) # [B, X, T, C] -> [B, C, X, T]
         # otherwise, expect shape like [B, C, X, T], C = model width/features/channels
-        x = self.gap(x).squeeze(-2) # [B, C, T]
         if not self.time_as_second_dim:
-            x = x.squeeze(-1) # [B, C, 1] -> [B, C]
+            x = x.mean(dim=(-2, -1)) # [B, C, X, Y] -> [B, C]
         if self.time_as_second_dim:
+            x = x.mean(dim=-2) # [B, C, X, T] -> [B, C, T]
             x = x.permute(0, 2, 1) # [B, T, C]
         x = self.fcs(x)
         return x # shape [B, T, out_channels] or [B, out_channels]
