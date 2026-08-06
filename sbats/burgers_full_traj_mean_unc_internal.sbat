@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=burgers_fno_full_traj_mean_unc_internal_test
+#SBATCH --job-name=burgers_fno_full_traj_mean_unc_internal_power
 #SBATCH --mail-user=enaegele@umich.edu
 #SBATCH --mail-type=BEGIN,END,FAIL
 
@@ -17,7 +17,7 @@
 #SBATCH --mem=8GB
 
 ## wall time hours:minutes:seconds
-#SBATCH --time=0:20:00
+#SBATCH --time=6:00:00
 #SBATCH --output=outputs/%x_%j.out
 #SBATCH --error=errors/%x_%j.err
 
@@ -49,17 +49,17 @@ python --version
 
 python -m scripts.al_submitit -m \
 +experiment=burgers \
-+experiment/sub_exp=power \
++experiment/sub_exp=random \
 acquisition/data_schedule=linear \
 prob_model=mean_unc_internal \
 prob_model/model_wrapper=fno_full_traj_mean_unc_internal \
+prob_model.model_wrapper.training_type=full_trajectory \
 task.data_gen.num_initial_batches=1 \
-task.data_gen.batch_size=3 \
+task.data_gen.batch_size=200 \
 num_al_iter=2 \
-num_epochs=2 \
+num_epochs=200 \
 prob_model.model_wrapper.batch_size=64 \
-prob_model.model_wrapper.optimizer.lr=3e-4 \
-wandb.name=burgers_fno_full_traj_mean_unc_internal_test_run \
+wandb.name=burgers_fno_full_traj_mean_unc_internal_random_acq_2_iter_200_epoch \
 warm_start_weights=True \
 hydra=base
 
