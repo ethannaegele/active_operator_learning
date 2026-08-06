@@ -22,23 +22,36 @@ def setup_loader(run_id: str,
                             test_folder: str, # folder for test/val set data, eg data/data/Burgers/val
                             current_directory: str,
                             checkpoint_name: str = '4.pt',
+                            config_name: str = 'main',
+                            load_eval_model: bool = False,
+                            load_sel_model: bool = False
                             ):
+    if load_eval_model and load_sel_model:
+        raise ValueError("Only load one of eval_model or sel_model during a" \
+        "single call to setup_loader.")
     os.chdir(current_directory)
     config_dir = os.path.join(current_directory, "config")
     config_dir = os.path.abspath(config_dir)
     
     with hydra.initialize_config_dir(version_base="1.3.2", config_dir=config_dir):
         cfg = hydra.compose(
-            config_name="main",
+            config_name=config_name,
             overrides=overrides,
         )
-    run_save_path = os.path.join(cfg.task.run_save_path, run_id)
+    root_run_save_path = os.path.join(cfg.task.run_save_path, run_id)
+    if load_eval_model:
+        checkpoint_run_save_path = os.path.join(root_run_save_path, 'eval_model')
+    elif load_sel_model:
+        checkpoint_run_save_path = os.path.join(root_run_save_path, 'sel_model')
+    else:
+        checkpoint_run_save_path = root_run_save_path
 
-    task = hydra.utils.instantiate(cfg.task, run_save_path=run_save_path)
-    prob_model = build_prob_model(task, cfg.prob_model)
+    task = hydra.utils.instantiate(cfg.task, run_save_path=root_run_save_path)
+    model_cfg = cfg.sel_model if load_sel_model else cfg.prob_model
+    prob_model = build_prob_model(task, model_cfg)
 
     al_iter, sampling_finished = load_checkpoint(
-        run_save_path,
+        checkpoint_run_save_path,
         checkpoint_name,
         prob_model,
         train=False,
@@ -97,6 +110,8 @@ def model_error_histogram_plotter(
                                   current_directory: str,
                                   sample_index: int | list[int] = 0, # index of observation from test set to examine
                                   checkpoint_name: str = '4.pt',
+                                  config_name: str = 'main',
+                                  load_eval_model: bool = False
                                   ):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -105,7 +120,9 @@ def model_error_histogram_plotter(
                                                   overrides, 
                                                   test_folder,
                                                   current_directory,
-                                                  checkpoint_name=checkpoint_name)
+                                                  checkpoint_name=checkpoint_name,
+                                                  config_name=config_name,
+                                                  load_eval_model=load_eval_model)
     if task.spatial_dim != 1:
         raise ValueError("Only 1D tasks currently supported.")
 
@@ -185,6 +202,8 @@ def test_trajectory_visualizer(run_id: str,
                                 current_directory: str,
                                 sample_index: int | list[int] = 0, # index of observation from test set to examine
                                 checkpoint_name: str = '4.pt',
+                                config_name: str = 'main',
+                                load_eval_model: bool = False
                                 ):
     os.chdir(current_directory)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -193,7 +212,9 @@ def test_trajectory_visualizer(run_id: str,
                           overrides,
                           test_folder,
                           current_directory,
-                          checkpoint_name=checkpoint_name)
+                          checkpoint_name=checkpoint_name,
+                          config_name=config_name,
+                          load_eval_model=load_eval_model)
     if task.spatial_dim != 1:
         raise ValueError("Only 1D tasks currently supported.")
     
@@ -281,21 +302,51 @@ def error_unc_correlation(run_id: str,
                             overrides: list[str],
                             test_folder: str, # folder for test or val set data, eg data/data/Burgers/val
                             current_directory: str,
-                            checkpoint_name: str = '4.pt',):
+                            checkpoint_name: str = '4.pt',
+                            config_name: str = 'main',
+                            load_eval_model: bool = False,
+                            load_sel_model: bool = False):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.chdir(current_directory)
-    prob_model, test_data, task, al_iter, cfg = setup_loader(run_id,
-                                                overrides,
-                                                test_folder,
-                                                current_directory,
-                                                checkpoint_name=checkpoint_name)
+    if load_sel_model and not load_eval_model:
+        raise ValueError
+    if load_eval_model:
+        eval_model, test_data, task, al_iter, cfg = setup_loader(run_id,
+                                                    overrides,
+                                                    test_folder,
+                                                    current_directory,
+                                                    checkpoint_name=checkpoint_name,
+                                                    config_name=config_name,
+                                                    load_eval_model=load_eval_model,
+                                                    load_sel_model=False)
+        eval_model.eval()
+        prob_model = eval_model
+    if load_sel_model:
+        sel_model, test_data, task, al_iter, cfg = setup_loader(run_id,
+                                                            overrides,
+                                                            test_folder,
+                                                            current_directory,
+                                                            checkpoint_name=checkpoint_name,
+                                                            config_name=config_name,
+                                                            load_eval_model=False,
+                                                            load_sel_model=load_sel_model)
+        sel_model.eval()
+    if not load_eval_model and not load_sel_model:
+        prob_model, test_data, task, al_iter, cfg = setup_loader(run_id,
+                                                            overrides,
+                                                            test_folder,
+                                                            current_directory,
+                                                            checkpoint_name=checkpoint_name,
+                                                            config_name=config_name,
+                                                            load_eval_model=load_eval_model,
+                                                            load_sel_model=False)
+        prob_model.eval()
+
     test_loader = DataLoader(
                     test_data,
                     batch_size=prob_model.batch_size,
                     shuffle=False
     )
-
-    prob_model.eval()
 
     all_uncs = [None] * len(test_loader)
     all_sq_errs = [None] * len(test_loader)
@@ -308,18 +359,44 @@ def error_unc_correlation(run_id: str,
         t_idx = t_idx.to(device)
 
         with torch.no_grad():
-            pred, unc = prob_model.unc_roll_out(
-                xx,
-                grid,
-                yy.shape[-2],
-                pde_param=param,
-                t_idx=t_idx,
-            )
-
+            if not load_eval_model and not load_sel_model:
+                pred, unc = prob_model.unc_roll_out(
+                    xx,
+                    grid,
+                    yy.shape[-2],
+                    pde_param=param,
+                    t_idx=t_idx,
+                )
+            elif load_eval_model and load_sel_model:
+                pred = eval_model.roll_out(xx, 
+                                           grid, 
+                                           yy.shape[-2], 
+                                           pde_param=param,
+                                           t_idx=t_idx)
+                _, unc = sel_model.unc_roll_out(xx, 
+                                                grid,
+                                                yy.shape[-2],
+                                                pde_param=param,
+                                                t_idx=t_idx)
+                prob_model = eval_model
+            elif load_eval_model and not load_sel_model:
+                pred, unc = eval_model.unc_roll_out(xx,
+                                                    grid,
+                                                    yy.shape[-2],
+                                                    pde_param=param,
+                                                    t_idx=t_idx)
+                prob_model = eval_model
+            else:
+                raise ValueError("Invalid combination of loading eval_model and sel_model")
             sq_err = (pred - yy) ** 2
 
             # # ignore initial known frames
             sq_err = sq_err[..., prob_model.initial_step:, :]
+            if load_sel_model:
+                if sel_model.initial_step != prob_model.initial_step:
+                    raise RuntimeError(f"Unexpected mismatch: " \
+                    f"sel_model.initial_step = {sel_model.initial_step}, " \
+                    f"eval_model.initial_step = {prob_model.initial_step}")
             unc_eval = unc[..., prob_model.initial_step:, :]
 
 
@@ -353,7 +430,12 @@ def save_final_eval_metrics(run_id: str,
                             file_name: str, # eg "final_val_eval_results"
                             current_directory: str, # eg "/content/drive/MyDrive/projects/active_operator_learning"
                             checkpoint_name: str = '4.pt',
+                            config_name: str = 'main',
+                            load_eval_model: bool = False,
+                            load_sel_model: bool = False
                             ):
+    if load_sel_model and not load_eval_model:
+        raise ValueError
     
     os.chdir(current_directory)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -361,7 +443,10 @@ def save_final_eval_metrics(run_id: str,
                                                 overrides,
                                                 test_folder,
                                                 current_directory,
-                                                checkpoint_name=checkpoint_name)
+                                                checkpoint_name=checkpoint_name,
+                                                config_name=config_name,
+                                                load_eval_model=load_eval_model,
+                                                load_sel_model=False)
     test_loader = DataLoader(
                             test_data,
                             batch_size=prob_model.batch_size,
@@ -390,7 +475,10 @@ def save_final_eval_metrics(run_id: str,
                                                 overrides,
                                                 test_folder,
                                                 current_directory,
-                                                checkpoint_name=checkpoint_name)
+                                                checkpoint_name=checkpoint_name,
+                                                config_name=config_name,
+                                                load_eval_model=load_eval_model,
+                                                load_sel_model=load_sel_model)
     correlation_metrics = {prefix + k: make_json_safe(v) for k, v in correlation_metrics.items()}
     wandb.log(correlation_metrics | {prefix + time_step_name: al_iter})
 
