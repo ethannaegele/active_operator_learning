@@ -260,7 +260,7 @@ class MeanUnc(ProbModel):
 
 
     def train_single_epoch(self, current_epoch, total_epoch, num_epoch):
-        t1 = default_timer()
+        t1_epoch = default_timer()
 
         self.model_wrapper.train()
         self.task_norm = getattr(self.model_wrapper, "task_norm", None)
@@ -429,12 +429,12 @@ class MeanUnc(ProbModel):
 
         train_rmse = torch.sqrt(train_mse_sum / n).item()
         train_avg_loss = train_loss_sum / n
-        t2 = default_timer()
+        t2_epoch = default_timer()
         avg_grad = grad_sum / grad_sum_n
         if self.step_batch == -1:
             self.scheduler.step()
 
-        print("epoch:", str(current_epoch), "time:", np.round(t2 - t1, 2),
+        print("epoch:", str(current_epoch), "time:", np.round(t2_epoch - t1_epoch, 2),
               "train_rmse:", np.round(train_rmse, 4), "train_loss", np.round(train_avg_loss, 4),
               "avg_grad", np.round(avg_grad.item(), 4), "max_grad", np.round(max_grad, 3),
               "grad_norm", np.round(norm_sum/ norm_n, 4), "max_grad_norm", self.max_grad_norm)
