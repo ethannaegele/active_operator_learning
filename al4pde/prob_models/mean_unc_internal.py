@@ -19,6 +19,11 @@ from al4pde.evaluation.stats import LossUncCorr, UncAvg
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+def sync_time(do_profile: bool) -> float | None:
+    if do_profile:
+        torch.cuda.synchronize()
+        return time.time()
+
 class MeanUnc(ProbModel):
     def __init__(self, 
                  model_wrapper: FNOWrapper | FNOFullTrajectoryWrapper | ArenaWrapper,
@@ -253,7 +258,7 @@ class MeanUnc(ProbModel):
         self.scheduler = self.scheduler_factory(self.optimizer)
         self.first_iter_nb = self.model_wrapper.first_iter_nb
 
-    
+
     def train_single_epoch(self, current_epoch, total_epoch, num_epoch):
         t1 = default_timer()
 
@@ -269,6 +274,7 @@ class MeanUnc(ProbModel):
         grad_sum_n = 0
         norm_sum = 0
         norm_n = 0
+        profile_batches = 3
 
         if self.noise_mode == "channel_std_rel" and self.task_norm is not None:
             std = self.noise * self.task_norm.std_channels
@@ -284,6 +290,7 @@ class MeanUnc(ProbModel):
             pde_param = pde_param.to(device)
             t_idx = t_idx.to(device)
             _batch = yy.size(0)
+            do_profile = torch.cuda.is_available() and batch_idx < profile_batches
 
             if self.block_grad:
                 xx = xx.detach()
@@ -335,13 +342,16 @@ class MeanUnc(ProbModel):
                 log_sigma = torch.concat(unc_cell, dim=-2)
             elif self.training_type == 'full_trajectory':
                 xx = xx + torch.normal(torch.zeros_like(xx), std)
-                
+                t0 = sync_time(do_profile)
                 pred, log_sigma = self.unc_roll_out_log_sigma(xx, 
                                                         grid, 
                                                         yy.shape[-2],
                                                         pde_param=pde_param,
                                                         t_idx=t_idx,
                                                         return_features=False)
+                t1 = sync_time(do_profile)
+                if do_profile:
+                    print(f"profile batch {batch_idx}: forward_unc = {t1 - t0} s")
     
             else:
                 raise ValueError(self.training_type)
@@ -356,11 +366,21 @@ class MeanUnc(ProbModel):
                 pred_norm = pred
                 yy_norm = yy
 
+            t0 = sync_time(do_profile)
             loss = self.gaussian_nll(pred_norm, yy_norm, log_sigma, self.initial_step, reduction='mean')
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: loss = {t1 - t0} s")
 
             self.optimizer.zero_grad()
 
+            t0 = sync_time(do_profile)
             loss.backward()
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: backward = {t1 - t0} s")
+
+            t0 = sync_time(do_profile)
             total_norm = 0
             model_parameters = list(self.model_wrapper.model.parameters())
 
@@ -372,6 +392,9 @@ class MeanUnc(ProbModel):
                     max_grad = max(max_grad, grad.abs().max().detach().cpu().item())
                     param_norm = param.grad.data.norm(2)
                     total_norm += param_norm.item() ** 2
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: grad stats = {t1 - t0} s")
             total_norm = total_norm ** (1. / 2)
             norm_sum += total_norm
             norm_n += 1
@@ -390,7 +413,11 @@ class MeanUnc(ProbModel):
                     self.max_grad_norm = 5 * (self.max_grad_norm / 5 * 0.95 + norm_update * 0.05)
                 torch.nn.utils.clip_grad_norm_(model_parameters, self.max_grad_norm)
 
+            t0 = sync_time(do_profile)
             self.optimizer.step()
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"batch profile {batch_idx}: optimizer step = {t1 - t0} s")
             all_se = batch_errors(pred, yy, self.initial_step)
             train_mse_sum += all_se.mean().detach() * _batch
             train_max_l2 = max(torch.sqrt(all_se).max().detach().item(), train_max_l2)
