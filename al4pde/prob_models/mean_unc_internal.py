@@ -260,10 +260,10 @@ class MeanUnc(ProbModel):
 
 
     def train_single_epoch(self, current_epoch, total_epoch, num_epoch):
-        print("len train dataset:", len(self.train_loader.dataset))
-        print("len train loader:", len(self.train_loader))
-        print("batch size:", self.batch_size)
-        print("train folders:", self.task.train_data_folders)
+        # print("len train dataset:", len(self.train_loader.dataset))
+        # print("len train loader:", len(self.train_loader))
+        # print("batch size:", self.batch_size)
+        # print("train folders:", self.task.train_data_folders)
         t1_epoch = default_timer()
 
         self.model_wrapper.train()
@@ -278,7 +278,7 @@ class MeanUnc(ProbModel):
         grad_sum_n = 0
         norm_sum = 0
         norm_n = 0
-        profile_batches = 10
+        profile_batches = 0 # adjust for profiling
 
         if self.noise_mode == "channel_std_rel" and self.task_norm is not None:
             std = self.noise * self.task_norm.std_channels
@@ -287,20 +287,20 @@ class MeanUnc(ProbModel):
         else:
             raise ValueError(f"Invalid noise mode {self.noise_mode}")
 
-        loader_iter = iter(self.train_loader)
-        batch_idx = 0
+        #loader_iter = iter(self.train_loader)
+        #batch_idx = 0
 
-        #for batch_idx, (xx, yy, grid, pde_param, t_idx) in enumerate(self.train_loader):
-        while True:
+        for batch_idx, (xx, yy, grid, pde_param, t_idx) in enumerate(self.train_loader):
+        #while True:
             do_profile = torch.cuda.is_available() and batch_idx < profile_batches
-            t0 = sync_time(do_profile)
-            try: 
-                xx, yy, grid, pde_param, t_idx = next(loader_iter)
-            except StopIteration:
-                break
-            t1 = sync_time(do_profile)
-            if do_profile:
-                print(f"profile batch {batch_idx}: dataloader = {t1 - t0:.4f} s")
+            # t0 = sync_time(do_profile)
+            # try: 
+            #     xx, yy, grid, pde_param, t_idx = next(loader_iter)
+            # except StopIteration:
+            #     break
+            # t1 = sync_time(do_profile)
+            # if do_profile:
+            #     print(f"profile batch {batch_idx}: dataloader = {t1 - t0:.4f} s")
 
             t0 = sync_time(do_profile)
             xx = xx.to(device)
@@ -445,7 +445,7 @@ class MeanUnc(ProbModel):
 
             if self.step_batch != -1 and tb_idx % self.step_batch == 0 and tb_idx < self.first_iter_nb * num_epoch:
                 self.scheduler.step()
-            batch_idx += 1
+            #batch_idx += 1
 
         train_rmse = torch.sqrt(train_mse_sum / n).item()
         train_avg_loss = train_loss_sum / n
