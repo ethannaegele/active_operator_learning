@@ -3,6 +3,7 @@ import numpy as np
 from timeit import default_timer
 import wandb
 from collections import OrderedDict
+import time
 
 from al4pde.models.pdebench_loss import get_loss
 from al4pde.evaluation.analysis import batch_errors
@@ -11,6 +12,11 @@ from al4pde.models.dataloader import NPYDataset
 from al4pde.models.normalization import TaskNormalizer
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+def sync_time(do_profile: bool) -> float | None:
+    if do_profile:
+        torch.cuda.synchronize()
+        return time.time()
 
 
 class ModelWrapper(Model):
@@ -115,8 +121,12 @@ class ModelWrapper(Model):
 
 
     def train_single_epoch(self, current_epoch, total_epoch, num_epoch):
+        print("len train dataset:", len(self.train_loader.dataset))
+        print("len train loader:", len(self.train_loader))
+        print("batch size:", self.batch_size)
+        print("train folders:", self.task.train_data_folders)
 
-        t1 = default_timer()
+        t1_epoch = default_timer()
 
         self.model.train()
         train_mse_sum = 0
@@ -128,6 +138,7 @@ class ModelWrapper(Model):
         grad_sum_n = 0
         norm_sum = 0
         norm_n = 0
+        profile_batches = 20
 
         if self.noise_mode == "channel_std_rel":
             std = self.noise * self.task_norm.std_channels
@@ -136,20 +147,48 @@ class ModelWrapper(Model):
         else:
             raise ValueError(self.noise_mode)
 
-        for batch_idx, (xx, yy, grid, pde_param, t_idx) in enumerate(self.train_loader):
+        loader_iter = iter(self.train_loader)
+        batch_idx = 0
+
+        #for batch_idx, (xx, yy, grid, pde_param, t_idx) in enumerate(self.train_loader):
+        while True:
+            do_profile = torch.cuda.is_available() and batch_idx < profile_batches
+            t0 = sync_time(do_profile)
+            try: 
+                xx, yy, grid, pde_param, t_idx = next(loader_iter)
+            except StopIteration:
+                break
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: dataloader = {t1 - t0:.4f} s")
+
+            t0 = sync_time(do_profile)
             xx = xx.to(device)
             yy = yy.to(device)
             grid = grid.to(device)
             pde_param = pde_param.to(device)
             t_idx = t_idx.to(device)
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: move to device = {t1 - t0:.4f} s")
             _batch = yy.size(0)
 
+            t0 = sync_time(do_profile)
             pred, loss = get_loss(xx, yy, grid, pde_param, t_idx, self, current_epoch, num_epoch,
              self.training_type, std, self.block_grad)
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: forward and loss = {t1 - t0:.4f} s")
 
             self.optimizer.zero_grad()
 
+            t0 = sync_time(do_profile)
             loss.backward()
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: backward = {t1 - t0:.4f} s")
+
+            t0 = sync_time(do_profile)
             total_norm = 0
 
             for param in self.model.parameters():
@@ -160,6 +199,9 @@ class ModelWrapper(Model):
                     max_grad = max(max_grad, grad.abs().max().detach().cpu().item())
                     param_norm = param.grad.data.norm(2)
                     total_norm += param_norm.item() ** 2
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: grad stats = {t1 - t0:.4f} s")
             total_norm = total_norm ** (1. / 2)
             norm_sum += total_norm
             norm_n += 1
@@ -178,24 +220,34 @@ class ModelWrapper(Model):
                     self.max_grad_norm = 5 * (self.max_grad_norm / 5 * 0.95 + norm_update * 0.05)
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
 
+            t0 = sync_time(do_profile)
             self.optimizer.step()
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"batch profile {batch_idx}: optimizer step = {t1 - t0:.4f} s")
+
+            t0 = sync_time(do_profile)
             all_se = batch_errors(pred, yy, self.initial_step)
             train_mse_sum += all_se.mean().detach() * _batch
             train_max_l2 = max(torch.sqrt(all_se).max().detach().item(), train_max_l2)
             train_loss_sum += loss.detach().item() * _batch
             n += _batch
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"batch profile {batch_idx}: train metrics = {t1 - t0:.4f} s")
 
             if self.step_batch != -1 and tb_idx % self.step_batch == 0 and tb_idx < self.first_iter_nb * num_epoch:
                 self.scheduler.step()
+            batch_idx += 1
 
         train_rmse = torch.sqrt(train_mse_sum / n).item()
         train_avg_loss = train_loss_sum / n
-        t2 = default_timer()
+        t2_epoch = default_timer()
         avg_grad = grad_sum / grad_sum_n
         if self.step_batch == -1:
             self.scheduler.step()
 
-        print("epoch:", str(current_epoch), "time:", np.round(t2 - t1, 2),
+        print("epoch:", str(current_epoch), "time:", np.round(t2_epoch - t1_epoch, 2),
               "train_rmse:", np.round(train_rmse, 4), "train_loss", np.round(train_avg_loss, 4),
               "avg_grad", np.round(avg_grad.item(), 4), "max_grad", np.round(max_grad, 3),
               "grad_norm", np.round(norm_sum/ norm_n, 4), "max_grad_norm", self.max_grad_norm)
