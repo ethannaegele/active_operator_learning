@@ -295,7 +295,8 @@ class MeanUnc(ProbModel):
             except StopIteration:
                 break
             t1 = sync_time(do_profile)
-            print(f"profile batch {batch_idx}: dataloader = {t1 - t0:.4f} s")
+            if do_profile:
+                print(f"profile batch {batch_idx}: dataloader = {t1 - t0:.4f} s")
 
             t0 = sync_time(do_profile)
             xx = xx.to(device)
@@ -306,7 +307,7 @@ class MeanUnc(ProbModel):
             t1 = sync_time(do_profile)
             if do_profile:
                 print(f"profile batch {batch_idx}: move to device = {t1 - t0:.4f} s")
-                
+
             _batch = yy.size(0)
                  
             if self.block_grad:
