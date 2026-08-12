@@ -274,7 +274,7 @@ class MeanUnc(ProbModel):
         grad_sum_n = 0
         norm_sum = 0
         norm_n = 0
-        profile_batches = 3
+        profile_batches = 10
 
         if self.noise_mode == "channel_std_rel" and self.task_norm is not None:
             std = self.noise * self.task_norm.std_channels
@@ -283,26 +283,35 @@ class MeanUnc(ProbModel):
         else:
             raise ValueError(f"Invalid noise mode {self.noise_mode}")
 
-        for batch_idx, (xx, yy, grid, pde_param, t_idx) in enumerate(self.train_loader):
+        loader_iter = iter(self.train_loader)
+        batch_idx = 0
+
+        #for batch_idx, (xx, yy, grid, pde_param, t_idx) in enumerate(self.train_loader):
+        while True:
+            do_profile = torch.cuda.is_available() and batch_idx < profile_batches
+            t0 = sync_time(do_profile)
+            try: 
+                xx, yy, grid, pde_param, t_idx = next(loader_iter)
+            except StopIteration:
+                break
+            t1 = sync_time(do_profile)
+            print(f"profile batch {batch_idx}: dataloader = {t1 - t0:.4f} s")
+
+            t0 = sync_time(do_profile)
             xx = xx.to(device)
             yy = yy.to(device)
             grid = grid.to(device)
             pde_param = pde_param.to(device)
             t_idx = t_idx.to(device)
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"profile batch {batch_idx}: move to device = {t1 - t0:.4f} s")
+                
             _batch = yy.size(0)
-            do_profile = torch.cuda.is_available() and batch_idx < profile_batches
-
+                 
             if self.block_grad:
                 xx = xx.detach()
-
-            # pred, log_sigma = self.unc_roll_out(xx, 
-            #                                     grid, 
-            #                                     yy.shape[-2],
-            #                                     pde_param=pde_param, 
-            #                                     t_idx=t_idx,
-            #                                     return_features=False)
-
-            
+ 
             unc_cell = []
             pred = yy[..., :self.initial_step, :]
             # pdebench_loss style behavior to incorporate training schedule
@@ -351,7 +360,7 @@ class MeanUnc(ProbModel):
                                                         return_features=False)
                 t1 = sync_time(do_profile)
                 if do_profile:
-                    print(f"profile batch {batch_idx}: forward_unc = {t1 - t0} s")
+                    print(f"profile batch {batch_idx}: forward_unc = {t1 - t0:.4f} s")
     
             else:
                 raise ValueError(self.training_type)
@@ -370,7 +379,7 @@ class MeanUnc(ProbModel):
             loss = self.gaussian_nll(pred_norm, yy_norm, log_sigma, self.initial_step, reduction='mean')
             t1 = sync_time(do_profile)
             if do_profile:
-                print(f"profile batch {batch_idx}: loss = {t1 - t0} s")
+                print(f"profile batch {batch_idx}: loss = {t1 - t0:.4f} s")
 
             self.optimizer.zero_grad()
 
@@ -378,7 +387,7 @@ class MeanUnc(ProbModel):
             loss.backward()
             t1 = sync_time(do_profile)
             if do_profile:
-                print(f"profile batch {batch_idx}: backward = {t1 - t0} s")
+                print(f"profile batch {batch_idx}: backward = {t1 - t0:.4f} s")
 
             t0 = sync_time(do_profile)
             total_norm = 0
@@ -394,7 +403,7 @@ class MeanUnc(ProbModel):
                     total_norm += param_norm.item() ** 2
             t1 = sync_time(do_profile)
             if do_profile:
-                print(f"profile batch {batch_idx}: grad stats = {t1 - t0} s")
+                print(f"profile batch {batch_idx}: grad stats = {t1 - t0:.4f} s")
             total_norm = total_norm ** (1. / 2)
             norm_sum += total_norm
             norm_n += 1
@@ -417,15 +426,21 @@ class MeanUnc(ProbModel):
             self.optimizer.step()
             t1 = sync_time(do_profile)
             if do_profile:
-                print(f"batch profile {batch_idx}: optimizer step = {t1 - t0} s")
+                print(f"batch profile {batch_idx}: optimizer step = {t1 - t0:.4f} s")
+
+            t0 = sync_time(do_profile)
             all_se = batch_errors(pred, yy, self.initial_step)
             train_mse_sum += all_se.mean().detach() * _batch
             train_max_l2 = max(torch.sqrt(all_se).max().detach().item(), train_max_l2)
             train_loss_sum += loss.detach().item() * _batch
             n += _batch
+            t1 = sync_time(do_profile)
+            if do_profile:
+                print(f"batch profile {batch_idx}: train metrics = {t1 - t0:.4f} s")
 
             if self.step_batch != -1 and tb_idx % self.step_batch == 0 and tb_idx < self.first_iter_nb * num_epoch:
                 self.scheduler.step()
+            batch_idx += 1
 
         train_rmse = torch.sqrt(train_mse_sum / n).item()
         train_avg_loss = train_loss_sum / n
@@ -455,8 +470,8 @@ class MeanUnc(ProbModel):
             )
             self.norm_max_counter = 0
             self.max_norm_stat = 0
-    
-    
+        
+        
     def train_n_epoch(self, 
                       al_iter, 
                       num_epoch, 
