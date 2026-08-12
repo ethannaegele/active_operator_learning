@@ -260,6 +260,10 @@ class MeanUnc(ProbModel):
 
 
     def train_single_epoch(self, current_epoch, total_epoch, num_epoch):
+        print("len train dataset:", len(self.train_loader.dataset))
+        print("len train loader:", len(self.train_loader))
+        print("batch size:", self.batch_size)
+        print("train folders:", self.task.train_data_folders)
         t1_epoch = default_timer()
 
         self.model_wrapper.train()
