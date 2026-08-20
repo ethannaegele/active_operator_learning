@@ -111,7 +111,8 @@ def model_error_histogram_plotter(
                                   sample_index: int | list[int] = 0, # index of observation from test set to examine
                                   checkpoint_name: str = '4.pt',
                                   config_name: str = 'main',
-                                  load_eval_model: bool = False
+                                  load_eval_model: bool = False,
+                                  show_theoretical_dist: bool = True
                                   ):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -165,7 +166,8 @@ def model_error_histogram_plotter(
             # errors at a specific time slice
             true_np = yy[0, :, time_idx, 0].detach().cpu().numpy()
             pred_np = pred[0, :, time_idx, 0].detach().cpu().numpy()
-            unc_np = unc[0, 0, time_idx, 0].detach().cpu().numpy() # should be a scalar, ie a np.float64 or similar, representing the uncertainty for that time slice
+            if show_theoretical_dist:
+                unc_np = unc[0, 0, time_idx, 0].detach().cpu().numpy() # should be a scalar, ie a np.float64 or similar, representing the uncertainty for that time slice
             err_np = pred_np - true_np
             err_np = err_np.reshape(-1)
 
@@ -180,9 +182,10 @@ def model_error_histogram_plotter(
                                                 color = 'red', 
                                                 edgecolor="black", 
                                                 label='Observed Error Distribution')
-            x = np.linspace(bin_edges[0], bin_edges[-1], num = 1000)
-            y = 1 / np.sqrt(2 * np.pi * unc_np**2) * np.exp(-x**2 / (2 * unc_np**2))
-            plt.plot(x, y, color = 'blue', label='Theoretical Error Distribution')
+            if show_theoretical_dist:
+                x = np.linspace(bin_edges[0], bin_edges[-1], num = 1000)
+                y = 1 / np.sqrt(2 * np.pi * unc_np**2) * np.exp(-x**2 / (2 * unc_np**2))
+                plt.plot(x, y, color = 'blue', label='Theoretical Error Distribution')
             plt.title(f"Model errors at time index {time_idx}")
             plt.xlabel("Error")
             plt.ylabel("Density")
