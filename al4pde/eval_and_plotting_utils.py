@@ -174,7 +174,8 @@ def model_error_histogram_plotter(
             # print("Prediction:", pred_np)
             # print("True function:", true_np)
             #print("Errors:", err_np)
-            print(f"uncertainty at sample index {sample_idx}, time index {time_idx}:", unc_np)
+            if show_theoretical_dist:
+                print(f"uncertainty at sample index {sample_idx}, time index {time_idx}:", unc_np)
 
             plt.figure(figsize=(6, 4))
             counts, bin_edges, patches = plt.hist(err_np, 
