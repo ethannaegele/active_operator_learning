@@ -261,6 +261,8 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             raise ValueError("FNOFullTrajectoryWrapper requires training_type='full_trajectory'")
         self.traj_len = traj_len
         self.if_conditional = if_conditional
+        self.mean_time_coord = None
+        self.std_time_coord = None
 
     def _repeat_param_features(self, xx, pde_param, t_idx):
         features = []
@@ -283,16 +285,13 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             n_cond += 1
         return n_cond
 
-    def _build_space_time_grid(self, grid, t_idx, traj_len):
+    def _build_time_coord(self, grid, t_idx, traj_len):
         bsize = grid.shape[0]
-        spatial_shape = grid.shape[1:-1]
-        grid = grid.unsqueeze(-2).repeat(*([1] + [1] * len(spatial_shape) + [traj_len, 1]))
         rel_t = torch.arange(traj_len, device=grid.device, dtype=grid.dtype)
         if t_idx is None:
             stored_t_idx = rel_t[None, :].repeat(bsize, 1)
         else:
             stored_t_idx = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
-
         # Datasets expose t_idx in the loaded/reduced trajectory. Convert it
         # back to the solver-step index before asking the simulator for time.
         solver_t_idx = (stored_t_idx + getattr(self, "skip_initial_steps", 0)) * getattr(self, "reduced_resolution_t", 1)
@@ -300,9 +299,39 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             time_coord = self.task.sim.get_time(solver_t_idx)
         else:
             time_coord = solver_t_idx
+        return time_coord
+
+    def _build_space_time_grid(self, grid, time_coord, traj_len):
+        bsize = grid.shape[0]
+        spatial_shape = grid.shape[1:-1]
+        grid = grid.unsqueeze(-2).repeat(*([1] + [1] * len(spatial_shape) + [traj_len, 1]))
+
         view_shape = [bsize] + [1] * len(spatial_shape) + [traj_len, 1]
         time_grid = time_coord.reshape(view_shape).repeat(*([1] + list(spatial_shape) + [1, 1]))
         return torch.cat((grid, time_grid), dim=-1)
+
+    def set_stats_time_coord(self, traj_len):
+        n = len(self.train_loader.sampler)
+        mean_channels = 0
+        for batch in self.train_loader:
+            grid = batch[2]
+            t_idx = batch[4]
+            time_coord = self._build_time_coord(grid, t_idx, traj_len) # shape [B, traj_len]
+            mean_channels += time_coord.flatten(0, -1).mean(0) * len(time_coord) / n
+        
+        std_channels = 0
+        for batch in self.train_loader:
+            grid = batch[2]
+            t_idx = batch[4]
+            time_coord = self._build_time_coord(grid, t_idx, traj_len)
+            std_channels += ((time_coord.flatten(0, -1) - mean_channels) ** 2).mean(0) * len(time_coord) / n
+
+        self.mean_time_coord, self.std_time_coord = mean_channels, torch.sqrt(std_channels)
+        self.mean_time_coord = self.mean_time_coord.to(device=device)
+        self.std_time_coord = self.std_time_coord.to(device=device)
+
+    def _norm_time_coord(self, time_coord):
+        return (time_coord - self.mean_time_coord) / self.std_time_coord
 
     def _forward_mean_unc(self, xx, grid, traj_len, pde_param=None, t_idx=None, 
                           return_features=False, return_uncertainty=False):
@@ -311,16 +340,18 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
                 is not supported. Uncertainty-based active learning and
                 feature-based active learning are two distinct modes and should
                 be used separately.""")
+        time_coord = self._build_time_coord(grid, t_idx, traj_len)
         if self.norm_mode is not None:
             xx = self.task_norm.norm_traj(xx)
             grid = self.task_norm.norm_grid(grid)
+            time_coord = self._norm_time_coord(time_coord)
             if pde_param is not None:
                 pde_param = self.task_norm.norm_param(pde_param)
 
         xx = self._repeat_param_features(xx, pde_param, t_idx)
         xx = torch.flatten(xx, -2)
         xx = xx.unsqueeze(-2).repeat(*([1] + [1] * (xx.dim() - 2) + [traj_len, 1]))
-        grid = self._build_space_time_grid(grid, t_idx, traj_len)
+        grid = self._build_space_time_grid(grid, time_coord, traj_len)
 
         if return_features:
             out, feat = self.model(xx, grid, return_features=True)

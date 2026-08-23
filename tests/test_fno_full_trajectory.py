@@ -125,12 +125,15 @@ class FNOFullTrajectoryTest(unittest.TestCase):
         wrapper.reduced_resolution_t = 5
         wrapper.skip_initial_steps = 2
 
-        space_time_grid = wrapper._build_space_time_grid(
-            torch.zeros(1, 3, 1),
+        grid = torch.zeros(1, 3, 1)
+        time_coord = wrapper._build_time_coord(
+            grid,
             torch.tensor([3.0]),
             traj_len=2,
         )
+        space_time_grid = wrapper._build_space_time_grid(grid, time_coord, traj_len=2)
 
+        self.assertTrue(torch.equal(time_coord[0], torch.tensor([25.0, 30.0])))
         self.assertTrue(torch.equal(space_time_grid[0, 0, :, -1], torch.tensor([25.0, 30.0])))
 
     def test_direct_ensemble_accepts_full_trajectory_fno_wrappers(self):

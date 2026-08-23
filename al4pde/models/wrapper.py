@@ -108,6 +108,11 @@ class ModelWrapper(Model):
             if al_iter == 0 or self.task_norm is None or self.norm_mode == "every":
                 self.task_norm = TaskNormalizer()
                 self.task_norm.update(self.train_loader)
+                if self.training_type == "full_trajectory":
+                    if hasattr(self, "traj_len"):
+                        self.set_stats_time_coord(self.traj_len)
+                    else:
+                        raise ValueError("Could not normalize time coordinate due to wrapper not having traj_len defined")
                 self.task_norm.to(device)
 
                 if al_iter == 0:
