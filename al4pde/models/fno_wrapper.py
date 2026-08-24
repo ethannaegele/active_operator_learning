@@ -255,7 +255,8 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
 
     predicts_full_trajectory = True
 
-    def __init__(self, *args, traj_len, if_conditional=True, **kwargs):
+    def __init__(self, *args, traj_len, if_conditional=True, 
+                 time_coord_mode=None, time_coord_norm_mode=None, **kwargs):
         super().__init__(*args, **kwargs)
         if self.training_type != "full_trajectory":
             raise ValueError("FNOFullTrajectoryWrapper requires training_type='full_trajectory'")
@@ -263,6 +264,13 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
         self.if_conditional = if_conditional
         self.mean_time_coord = None
         self.std_time_coord = None
+        if time_coord_mode not in {"abs_time", "rel_time"}:
+            raise ValueError("Invalid value of time_coord_mode:", time_coord_mode)
+        if time_coord_norm_mode not in {"stats", "interval", None}:
+            raise ValueError("Invalid value of time_coord_norm_mode:", time_coord_norm_mode)
+        self.time_coord_mode = time_coord_mode
+        self.time_coord_norm_mode = time_coord_norm_mode
+        
 
     def _repeat_param_features(self, xx, pde_param, t_idx):
         features = []
@@ -288,19 +296,29 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
     def _build_time_coord(self, grid, t_idx, traj_len):
         bsize = grid.shape[0]
         rel_t = torch.arange(traj_len, device=grid.device, dtype=grid.dtype)
-        if t_idx is None:
-            stored_t_idx = rel_t[None, :].repeat(bsize, 1)
-        else:
-            stored_t_idx = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
-        # Datasets expose t_idx in the loaded/reduced trajectory. Convert it
-        # back to the solver-step index before asking the simulator for time.
-        solver_t_idx = (stored_t_idx + getattr(self, "skip_initial_steps", 0)) * getattr(self, "reduced_resolution_t", 1)
-        if hasattr(self.task, "sim") and hasattr(self.task.sim, "get_time"):
-            time_coord = self.task.sim.get_time(solver_t_idx)
-        else:
-            time_coord = solver_t_idx
-        return time_coord
 
+        if self.time_coord_mode == "abs_time":
+            if t_idx is None:
+                stored_t_idx = rel_t[None, :].repeat(bsize, 1)
+            else:
+                stored_t_idx = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
+            # Datasets expose t_idx in the loaded/reduced trajectory. Convert it
+            # back to the solver-step index before asking the simulator for time.
+            solver_t_idx = (stored_t_idx + getattr(self, "skip_initial_steps", 0)) * getattr(self, "reduced_resolution_t", 1)
+            if hasattr(self.task, "sim") and hasattr(self.task.sim, "get_time"):
+                time_coord = self.task.sim.get_time(solver_t_idx)
+            else:
+                time_coord = solver_t_idx
+        else: # rel_time
+            rel_t = rel_t[None, :].repeat(bsize, 1)
+            solver_rel_t = rel_t * getattr(self, "reduced_resolution_t", 1)
+            if hasattr(self.task, "sim") and hasattr(self.task.sim, "dt"):
+                time_coord = solver_rel_t * self.task.sim.dt
+            else:
+                raise RuntimeError("Unable to find sim or sim.dt attributes" \
+                "associated with task")
+        return time_coord
+            
     def _build_space_time_grid(self, grid, time_coord, traj_len):
         bsize = grid.shape[0]
         spatial_shape = grid.shape[1:-1]
@@ -331,7 +349,15 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
         self.std_time_coord = self.std_time_coord.to(device=device)
 
     def _norm_time_coord(self, time_coord):
-        return (time_coord - self.mean_time_coord) / self.std_time_coord
+        if self.time_coord_norm_mode is None:
+            raise ValueError("Called _norm_time_coord when time_coord_norm_mode is None")
+        elif self.time_coord_norm_mode == "stats":
+            return (time_coord - self.mean_time_coord) / self.std_time_coord
+        else: # self.time_coord_norm_mode == "interval"
+            # normalizes to the interval [-1, 1]
+            denom = time_coord[:, -1:] - time_coord[:, :1]
+            return 2.0 * (time_coord - time_coord[:, :1]) / denom - 1.0
+            
 
     def _forward_mean_unc(self, xx, grid, traj_len, pde_param=None, t_idx=None, 
                           return_features=False, return_uncertainty=False):
@@ -341,10 +367,11 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
                 feature-based active learning are two distinct modes and should
                 be used separately.""")
         time_coord = self._build_time_coord(grid, t_idx, traj_len)
+        if self.time_coord_norm_mode is not None:
+            time_coord = self._norm_time_coord(time_coord)
         if self.norm_mode is not None:
             xx = self.task_norm.norm_traj(xx)
             grid = self.task_norm.norm_grid(grid)
-            time_coord = self._norm_time_coord(time_coord)
             if pde_param is not None:
                 pde_param = self.task_norm.norm_param(pde_param)
 
@@ -546,4 +573,7 @@ def build_fno_full_trajectory_wrapper(task, cfg, name=""):
                                     cfg.vis_period, cfg.block_grad, loss, name=name, step_batch=cfg.step_batch,
                                     num_train_steps=cfg.num_train_steps, max_grad_norm=cfg.max_grad_norm,
                                     norm_mode=cfg.norm_mode, noise=cfg.noise, noise_mode=cfg.noise_mode,
-                                    traj_len=cfg.model.traj_len, if_conditional=cfg.model.if_conditional)
+                                    traj_len=cfg.model.traj_len, if_conditional=cfg.model.if_conditional,
+                                    time_coord_mode=cfg.time_coord_mode,
+                                    time_coord_norm_mode=cfg.time_coord_norm_mode
+                                    )

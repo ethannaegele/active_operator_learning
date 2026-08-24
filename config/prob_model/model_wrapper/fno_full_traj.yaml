@@ -7,6 +7,8 @@ training_type: 'full_trajectory'
 encode_pde_param_log: false
 block_grad: false
 add_one_step: false
+time_coord_mode: abs_time
+time_coord_norm_mode: null
 
 optimizer:
   _target_: torch.optim.Adam

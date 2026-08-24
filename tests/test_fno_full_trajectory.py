@@ -11,6 +11,7 @@ from al4pde.prob_models.ensemble import Ensemble
 
 class DummySim:
     autonomous = True
+    dt = 0.1
 
     def get_time(self, t_idx):
         return t_idx
@@ -32,6 +33,10 @@ def make_wrapper(model, traj_len):
     wrapper.loss = IdentityLoss()
     wrapper.reduced_resolution_t = 1
     wrapper.skip_initial_steps = 0
+    wrapper.time_coord_mode = "abs_time"
+    wrapper.time_coord_norm_mode = None
+    wrapper.mean_time_coord = None
+    wrapper.std_time_coord = None
     return wrapper
 
 
@@ -135,6 +140,49 @@ class FNOFullTrajectoryTest(unittest.TestCase):
 
         self.assertTrue(torch.equal(time_coord[0], torch.tensor([25.0, 30.0])))
         self.assertTrue(torch.equal(space_time_grid[0, 0, :, -1], torch.tensor([25.0, 30.0])))
+
+    def test_relative_time_ignores_absolute_start_index(self):
+        model = FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2)
+        wrapper = make_wrapper(model, traj_len=3)
+        wrapper.time_coord_mode = "rel_time"
+        wrapper.reduced_resolution_t = 5
+        wrapper.skip_initial_steps = 2
+
+        time_coord = wrapper._build_time_coord(
+            torch.zeros(2, 3, 1),
+            torch.tensor([3.0, 7.0]),
+            traj_len=3,
+        )
+
+        expected = torch.tensor([[0.0, 0.5, 1.0], [0.0, 0.5, 1.0]])
+        self.assertEqual(time_coord.shape, expected.shape)
+        self.assertTrue(torch.allclose(time_coord, expected))
+        space_time_grid = wrapper._build_space_time_grid(torch.zeros(2, 3, 1), time_coord, traj_len=3)
+        self.assertEqual(space_time_grid.shape, (2, 3, 3, 2))
+
+    def test_interval_time_normalization_maps_each_window_to_minus_one_one(self):
+        model = FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2)
+        wrapper = make_wrapper(model, traj_len=3)
+        wrapper.time_coord_norm_mode = "interval"
+        time_coord = torch.tensor([[0.5, 0.75, 1.0], [2.0, 3.0, 4.0]])
+
+        normalized = wrapper._norm_time_coord(time_coord)
+
+        expected = torch.tensor([[-1.0, 0.0, 1.0], [-1.0, 0.0, 1.0]])
+        self.assertTrue(torch.allclose(normalized, expected))
+
+    def test_stats_time_normalization_uses_time_statistics(self):
+        model = FNO1dFullTrajectory(num_channels=1, modes1=3, modes2=3, width=8, initial_step=2)
+        wrapper = make_wrapper(model, traj_len=3)
+        wrapper.time_coord_norm_mode = "stats"
+        wrapper.mean_time_coord = torch.tensor(2.0)
+        wrapper.std_time_coord = torch.tensor(0.5)
+        time_coord = torch.tensor([[1.0, 2.0, 3.0]])
+
+        normalized = wrapper._norm_time_coord(time_coord)
+
+        expected = torch.tensor([[-2.0, 0.0, 2.0]])
+        self.assertTrue(torch.allclose(normalized, expected))
 
     def test_direct_ensemble_accepts_full_trajectory_fno_wrappers(self):
         wrappers = [

@@ -103,16 +103,14 @@ class ModelWrapper(Model):
 
             self._val_loader = torch.utils.data.DataLoader(val_data, batch_size=self.batch_size,
                                                            num_workers=self.num_workers, shuffle=False)
-
+        if self.training_type == "full_trajectory":
+            # set stats for time coordinate normalization for full traj models
+            if hasattr(self, "traj_len") and getattr(self, "time_coord_norm_mode", None) == "stats":
+                self.set_stats_time_coord(self.traj_len)
         if self.norm_mode is not None:
             if al_iter == 0 or self.task_norm is None or self.norm_mode == "every":
                 self.task_norm = TaskNormalizer()
                 self.task_norm.update(self.train_loader)
-                if self.training_type == "full_trajectory":
-                    if hasattr(self, "traj_len"):
-                        self.set_stats_time_coord(self.traj_len)
-                    else:
-                        raise ValueError("Could not normalize time coordinate due to wrapper not having traj_len defined")
                 self.task_norm.to(device)
 
                 if al_iter == 0:
