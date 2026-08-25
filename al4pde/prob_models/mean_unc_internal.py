@@ -468,6 +468,7 @@ class MeanUnc(ProbModel):
                 self.name + "/max_grad": max_grad,
                 self.name + "/grad_norm": norm_sum/ norm_n,
                 self.name + "/norm_cap_counter": self.norm_max_counter,
+                self.name + "/norm_cap_rate": np.round(self.norm_max_counter / (self.val_period * len(self.train_loader)), 4),
                 self.name + "/norm_max": self.max_norm_stat,
                 self.name + "/avg_grad": avg_grad,
                 "total_epoch": total_epoch,
