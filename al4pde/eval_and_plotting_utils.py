@@ -112,7 +112,8 @@ def model_error_histogram_plotter(
                                   checkpoint_name: str = '4.pt',
                                   config_name: str = 'main',
                                   load_eval_model: bool = False,
-                                  show_theoretical_dist: bool = True
+                                  show_theoretical_dist: bool = True,
+                                  show_plots: bool = True
                                   ):
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -193,6 +194,8 @@ def model_error_histogram_plotter(
             plt.legend()
             plt.tight_layout()
             plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{time_idx}.png", dpi=200)
+            if show_plots:
+                plt.show()
             plt.close()
 
             print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{time_idx}.png")
@@ -207,7 +210,8 @@ def test_trajectory_visualizer(run_id: str,
                                 sample_index: int | list[int] = 0, # index of observation from test set to examine
                                 checkpoint_name: str = '4.pt',
                                 config_name: str = 'main',
-                                load_eval_model: bool = False
+                                load_eval_model: bool = False,
+                                show_plots: bool = True
                                 ):
     os.chdir(current_directory)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -277,6 +281,8 @@ def test_trajectory_visualizer(run_id: str,
         plt.colorbar()
         plt.tight_layout()
         plt.savefig(f"{out_dir}/true_{pde_name}_{run_id}_sample_index_{sample_idx}.png", dpi=200)
+        if show_plots:
+            plt.show()
         plt.close()
 
         plt.figure(figsize=(6, 4))
@@ -287,6 +293,8 @@ def test_trajectory_visualizer(run_id: str,
         plt.colorbar()
         plt.tight_layout()
         plt.savefig(f"{out_dir}/pred_{pde_name}_{run_id}_sample_index_{sample_idx}.png", dpi=200)
+        if show_plots:
+            plt.show()
         plt.close()
 
         plt.figure(figsize=(6, 4))
@@ -297,6 +305,8 @@ def test_trajectory_visualizer(run_id: str,
         plt.colorbar()
         plt.tight_layout()
         plt.savefig(f"{out_dir}/err_{pde_name}_{run_id}_sample_index_{sample_idx}.png", dpi=200)
+        if show_plots:
+            plt.show()
         plt.close()
 
     print("Saved plots to:", out_dir)
