@@ -279,6 +279,7 @@ class MeanUnc(ProbModel):
         norm_sum = 0
         norm_n = 0
         profile_batches = 0 # adjust for profiling
+        log_sigma_reduced_all = []
 
         if self.noise_mode == "channel_std_rel" and self.task_norm is not None:
             std = self.noise * self.task_norm.std_channels
@@ -369,7 +370,11 @@ class MeanUnc(ProbModel):
     
             else:
                 raise ValueError(self.training_type)
-            
+            if current_epoch % self.val_period == 0:
+                spatial_zeros = (0,) * (log_sigma.ndim - 3)
+                reduced_index = (slice(None),) + spatial_zeros + (slice(self.initial_step, None), slice(None))
+                log_sigma_reduced = log_sigma[reduced_index].detach().cpu() # [B, spatial, T, C] -> [B, T - initial steps, C]
+                log_sigma_reduced_all.append(log_sigma_reduced)
 
             # currently, prediction is denormalized, log_sigma is normalized.
             # So, renormalize to put them on the same scale
@@ -447,6 +452,21 @@ class MeanUnc(ProbModel):
                 self.scheduler.step()
             #batch_idx += 1
 
+        if current_epoch % self.val_period == 0:
+            log_sigma_reduced_all_tensor = torch.cat(log_sigma_reduced_all, dim=0).detach().cpu()
+            log_sigma_reduced_all_tensor = log_sigma_reduced_all_tensor.flatten(0, -1) # [N, T, C] -> [N * T * C]
+            all_uncs = torch.exp(log_sigma_reduced_all_tensor).detach().cpu().numpy()
+            mean_unc = np.mean(all_uncs)
+            quantiles_unc = np.quantile(all_uncs, [0, .01, .05, .5, .95, .99, 1])
+            min_unc = quantiles_unc[0]
+            quantile_1_unc = quantiles_unc[1]
+            quantile_5_unc = quantiles_unc[2]
+            median_unc = quantiles_unc[3]
+            quantile_95_unc = quantiles_unc[4]
+            quantile_99_unc = quantiles_unc[5]
+            max_unc = quantiles_unc[-1] 
+
+
         train_rmse = torch.sqrt(train_mse_sum / n).item()
         train_avg_loss = train_loss_sum / n
         t2_epoch = default_timer()
@@ -472,6 +492,14 @@ class MeanUnc(ProbModel):
                 self.name + "/norm_max": self.max_norm_stat,
                 self.name + "/avg_grad": avg_grad,
                 "total_epoch": total_epoch,
+                self.name + "/train_unc_mean": mean_unc,
+                self.name + "/train_unc_min": min_unc,
+                self.name + "/train_unc_quantile_1": quantile_1_unc,
+                self.name + "/train_unc_quantile_5": quantile_5_unc,
+                self.name + "/train_unc_median": median_unc,
+                self.name + "/train_unc_quantile_95": quantile_95_unc,
+                self.name + "/train_unc_quantile_99": quantile_99_unc,
+                self.name + "/train_unc_max": max_unc
             },
             )
             self.norm_max_counter = 0
