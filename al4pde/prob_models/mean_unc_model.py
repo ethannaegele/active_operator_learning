@@ -13,6 +13,7 @@ from al4pde.prob_models.prob_model import ProbModel
 from al4pde.models.build_wrapper import build_wrapper
 from al4pde.evaluation.analysis import batch_errors
 from al4pde.utils import subsample_grid
+from al4pde.evaluation.stats import LossUncCorr, UncAvg
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -59,6 +60,8 @@ class MeanUncModel(ProbModel):
         self.time_coord_mode = time_coord_mode
         #self.time_coord_norm_mode = time_coord_norm_mode
         self.default_unc_traj_len = default_unc_traj_len
+        self.stats.append(UncAvg("unc"))
+        self.stats.append(LossUncCorr("corr_unc_loss", self.loss))
 
     def _build_time_coord(self, grid, t_idx, traj_len):
         """Method within class to build time coordinate.
