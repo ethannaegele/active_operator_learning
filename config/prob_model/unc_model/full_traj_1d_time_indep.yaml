@@ -1,0 +1,16 @@
+_target_: al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1dTimeIndep
+
+hidden_units: 16
+distribution: normal
+fully_connected_out_features: 128
+if_conditional: true
+max_pool_output_size: 8
+
+activation:
+  _target_: torch.nn.ReLU
+
+time_coord_mode: abs_time
+# Not used to define a final layer size.
+# Used as the default horizon when MeanUncModel.uncertainty(...)
+# is called without final_step.
+traj_len: 41

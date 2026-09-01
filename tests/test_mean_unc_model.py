@@ -7,7 +7,10 @@ from unittest.mock import patch
 
 from al4pde.prob_models.build_prob_model import build_prob_model
 from al4pde.prob_models.mean_unc_model import MeanUncModel
-from al4pde.prob_models.unc_model import UncertaintyModelFullTrajectory1d
+from al4pde.prob_models.unc_model import (
+    UncertaintyModelFullTrajectory1d,
+    UncertaintyModelFullTrajectory1dTimeIndep,
+)
 
 
 class DummySim:
@@ -16,6 +19,9 @@ class DummySim:
     channel_names = ["u"]
     pde_name = "dummy"
     pde_param_names = ["nu"]
+
+    def get_time(self, t_idx):
+        return t_idx
 
 
 class DummyTask:
@@ -84,6 +90,9 @@ class FixedLogSigmaModel(nn.Module):
     def forward(self, xx, grid, pde_param=None, t_idx=None):
         return self.log_sigma
 
+    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, time_coord=None):
+        return self.forward(xx, grid, pde_param=pde_param, t_idx=t_idx)[..., :final_step]
+
 
 class RecordingLogSigmaModel(nn.Module):
     def __init__(self, log_sigma):
@@ -91,9 +100,18 @@ class RecordingLogSigmaModel(nn.Module):
         self.log_sigma = log_sigma
         self.inputs = None
 
-    def forward(self, xx, grid, pde_param=None, t_idx=None):
-        self.inputs = (xx, grid, pde_param, t_idx)
+    def forward(self, xx, grid, pde_param=None, t_idx=None, time_coord=None):
+        self.inputs = (xx, grid, pde_param, t_idx, time_coord)
         return self.log_sigma
+
+    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, time_coord=None):
+        return self.forward(
+            xx,
+            grid,
+            pde_param=pde_param,
+            t_idx=t_idx,
+            time_coord=time_coord,
+        )[..., :final_step]
 
 
 class OffsetNormalizer:
@@ -151,11 +169,11 @@ class TrainableLogSigmaModel(nn.Module):
         super().__init__()
         self.log_sigma = nn.Parameter(torch.zeros(1, traj_len))
 
-    def forward(self, xx, grid, pde_param=None, t_idx=None):
+    def forward(self, xx, grid, pde_param=None, t_idx=None, time_coord=None):
         return self.log_sigma.expand(xx.shape[0], -1)
 
-    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None):
-        return self.forward(xx, grid, pde_param, t_idx)[..., :final_step]
+    def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, time_coord=None):
+        return self.forward(xx, grid, pde_param=pde_param, t_idx=t_idx, time_coord=time_coord)[..., :final_step]
 
 
 def make_mean_unc_model(mean_model, unc_model):
@@ -164,6 +182,11 @@ def make_mean_unc_model(mean_model, unc_model):
     model.mean_model = mean_model
     model.unc_model = unc_model
     model.if_conditional = True
+    model.task = DummyTask()
+    model.skip_initial_steps = DummyTask.skip_initial_steps
+    model.reduced_resolution_t = DummyTask.reduced_resolution_t
+    model.time_coord_mode = "abs_time"
+    model.default_unc_traj_len = None
     return model
 
 
@@ -174,6 +197,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             hidden_units=4,
             output_channels=3,
             input_grid_dim=4,
+            fully_connected_out_features=None,
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -181,6 +205,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             val_period=1,
             vis_period=1,
             loss=DummyLoss(),
+            activation=nn.ReLU(),
         )
         xx = torch.arange(16, dtype=torch.float32).reshape(2, 4, 2, 1)
         grid = torch.tensor([[0.0], [0.25], [0.5], [0.75]])
@@ -200,6 +225,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             hidden_units=4,
             output_channels=5,
             input_grid_dim=8,
+            fully_connected_out_features=None,
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -207,6 +233,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             val_period=1,
             vis_period=1,
             loss=DummyLoss(),
+            activation=nn.ReLU(),
         )
 
         log_sigma = model.roll_out(
@@ -224,6 +251,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             hidden_units=4,
             output_channels=3,
             input_grid_dim=8,
+            fully_connected_out_features=None,
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -231,6 +259,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             val_period=1,
             vis_period=1,
             loss=DummyLoss(),
+            activation=nn.ReLU(),
         )
 
         with self.assertRaisesRegex(ValueError, "expected X=8"):
@@ -245,6 +274,7 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             hidden_units=4,
             output_channels=3,
             input_grid_dim=8,
+            fully_connected_out_features=None,
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -252,10 +282,40 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             val_period=1,
             vis_period=1,
             loss=DummyLoss(),
+            activation=nn.ReLU(),
         )
 
         with self.assertRaises(NotImplementedError):
             model.unc_roll_out(torch.randn(2, 8, 1, 1), torch.randn(2, 8, 1), 3)
+
+    def test_time_independent_uncertainty_model_outputs_requested_horizon(self):
+        model = UncertaintyModelFullTrajectory1dTimeIndep(
+            input_channels=3,
+            hidden_units=4,
+            output_channels=None,
+            input_grid_dim=None,
+            fully_connected_out_features=6,
+            task=DummyTask(),
+            training_type="full_trajectory",
+            t_train=5,
+            batch_size=2,
+            val_period=1,
+            vis_period=1,
+            loss=DummyLoss(),
+            activation=nn.ReLU(),
+            max_pool_output_size=2,
+        )
+        time_coord = torch.tensor([[0.0, 0.5, 1.0, 1.5], [0.0, 0.5, 1.0, 1.5]])
+
+        log_sigma = model.roll_out(
+            torch.randn(2, 8, 1, 1),
+            torch.randn(2, 8, 1),
+            final_step=4,
+            pde_param=torch.randn(2, 1),
+            time_coord=time_coord,
+        )
+
+        self.assertEqual(log_sigma.shape, (2, 4))
 
     def test_mean_unc_roll_out_expands_sigma_to_trajectory_shape(self):
         mean = torch.arange(10, dtype=torch.float32).reshape(1, 2, 5, 1)
@@ -309,11 +369,12 @@ class MeanUncertaintyModelTest(unittest.TestCase):
 
         model.unc_roll_out(xx, grid, final_step=3, pde_param=pde_param, t_idx=t_idx)
 
-        xx_seen, grid_seen, pde_param_seen, t_idx_seen = unc_model.inputs
+        xx_seen, grid_seen, pde_param_seen, t_idx_seen, time_coord_seen = unc_model.inputs
         self.assertTrue(torch.equal(xx_seen, xx + 1.0))
         self.assertTrue(torch.equal(grid_seen, grid + 2.0))
         self.assertTrue(torch.equal(pde_param_seen, pde_param + 3.0))
         self.assertIs(t_idx_seen, t_idx)
+        self.assertIsNone(time_coord_seen)
 
     def test_gaussian_nll_matches_log_sigma_formula(self):
         model = make_mean_unc_model(
@@ -402,9 +463,13 @@ class MeanUncertaintyModelTest(unittest.TestCase):
                 },
             },
             "unc_model": {
+                "_target_": "al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1d",
                 "hidden_units": 4,
                 "distribution": "normal",
                 "if_conditional": True,
+                "activation": {
+                    "_target_": "torch.nn.ReLU",
+                },
             },
         })
 
@@ -431,6 +496,78 @@ class MeanUncertaintyModelTest(unittest.TestCase):
         self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
         self.assertFalse(torch.equal(mean_model.model.weight.detach(), mean_weight_before))
         self.assertFalse(torch.equal(next(model.unc_model.parameters()).detach(), unc_param_before))
+
+    def test_build_prob_model_time_independent_unc_roll_out_varies_across_time(self):
+        xx = torch.ones(2, 8, 2, 1)
+        yy = torch.ones(2, 8, 5, 1) * 2.0
+        grid = torch.linspace(0, 1, 8).reshape(1, 8, 1).repeat(2, 1, 1)
+        pde_param = torch.zeros(2, 1)
+        t_idx = torch.zeros(2)
+        train_loader = [(xx, yy, grid, pde_param, t_idx)]
+        mean_model = BuildableTrainableMeanModel(train_loader)
+        cfg = OmegaConf.create({
+            "_target_": "al4pde.prob_models.mean_unc_model.MeanUncModel",
+            "model_wrapper": {
+                "_target_": "unused.because.build_wrapper.is.mocked",
+                "training_type": "full_trajectory",
+                "t_train": 5,
+                "batch_size": 2,
+                "val_period": 999,
+                "vis_period": 999,
+                "noise": 0.0,
+                "noise_mode": "constant",
+                "block_grad": False,
+                "max_grad_norm": None,
+                "step_batch": -1,
+                "optimizer": {
+                    "_target_": "torch.optim.SGD",
+                    "lr": 0.1,
+                },
+                "scheduler": {
+                    "_target_": "torch.optim.lr_scheduler.StepLR",
+                    "step_size": 100,
+                    "gamma": 1.0,
+                },
+                "model": {},
+            },
+            "unc_model": {
+                "_target_": "al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1dTimeIndep",
+                "hidden_units": 4,
+                "distribution": "normal",
+                "if_conditional": True,
+                "fully_connected_out_features": 6,
+                "max_pool_output_size": 2,
+                "time_coord_mode": "abs_time",
+                "traj_len": 5,
+                "activation": {
+                    "_target_": "torch.nn.ReLU",
+                },
+            },
+        })
+
+        with patch("al4pde.prob_models.mean_unc_model.build_wrapper", return_value=mean_model):
+            model = build_prob_model(DummyTask(), cfg)
+        model.init_training(al_iter=0)
+        self.assertTrue(model.unc_model.time_grid_independent)
+
+        with torch.no_grad():
+            for parameter in model.unc_model.decoder.parameters():
+                parameter.zero_()
+            model.unc_model.decoder[0].weight[:, -1] = 1.0
+            model.unc_model.decoder[2].weight.fill_(1.0)
+            model.unc_model.decoder[4].weight.fill_(1.0)
+
+        mean_traj, unc_traj = model.unc_roll_out(
+            xx,
+            grid,
+            final_step=5,
+            pde_param=pde_param,
+            t_idx=t_idx,
+        )
+
+        self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
+        self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
+        self.assertFalse(torch.allclose(unc_traj[:, :, 0, :], unc_traj[:, :, -1, :]))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,6 @@ import functools
 from al4pde.prob_models.prob_model import ProbModel
 from al4pde.models.build_wrapper import build_wrapper
 from al4pde.evaluation.analysis import batch_errors
-from al4pde.prob_models.unc_model import UncertaintyModelFullTrajectory1d
 from al4pde.utils import subsample_grid
 
 
@@ -32,6 +31,9 @@ class MeanUncModel(ProbModel):
                  name,
                  if_conditional,
                  *args,
+                 time_coord_mode = "abs_time",
+                 time_coord_norm_mode = None,
+                 default_unc_traj_len = None,
                  **kwargs
                  ):
         super().__init__(*args, **kwargs)
@@ -52,6 +54,55 @@ class MeanUncModel(ProbModel):
         #self.first_iter_nb = self.mean_model.first_iter_nb
         self.name = name
         self.if_conditional = if_conditional
+        if time_coord_mode not in {"abs_time", "rel_time"}:
+            raise ValueError("Invalid value of time_coord_mode:", time_coord_mode)
+        self.time_coord_mode = time_coord_mode
+        #self.time_coord_norm_mode = time_coord_norm_mode
+        self.default_unc_traj_len = default_unc_traj_len
+
+    def _build_time_coord(self, grid, t_idx, traj_len):
+        """Method within class to build time coordinate.
+        Placed within class to remove dependency on FNO full trajectory as
+        the mean model."""
+        bsize = grid.shape[0]
+        rel_t = torch.arange(traj_len, device=grid.device, dtype=grid.dtype)
+
+        if self.time_coord_mode == "abs_time":
+            if t_idx is None:
+                stored_t_idx = rel_t[None, :].repeat(bsize, 1)
+            else:
+                stored_t_idx = t_idx.to(device=grid.device, dtype=grid.dtype)[:, None] + rel_t[None, :]
+            # Datasets expose t_idx in the loaded/reduced trajectory. Convert it
+            # back to the solver-step index before asking the simulator for time.
+            solver_t_idx = (stored_t_idx + getattr(self, "skip_initial_steps", 0)) * getattr(self, "reduced_resolution_t", 1)
+            if hasattr(self.task, "sim") and hasattr(self.task.sim, "get_time"):
+                time_coord = self.task.sim.get_time(solver_t_idx)
+            else:
+                time_coord = solver_t_idx
+        else: # rel_time
+            rel_t = rel_t[None, :].repeat(bsize, 1)
+            solver_rel_t = rel_t * getattr(self, "reduced_resolution_t", 1)
+            if hasattr(self.task, "sim") and hasattr(self.task.sim, "dt"):
+                time_coord = solver_rel_t * self.task.sim.dt
+            else:
+                raise RuntimeError("Unable to find sim or sim.dt attributes" \
+                "associated with task")
+        return time_coord
+
+    def _get_traj_len(self, final_step=None):
+        if hasattr(self.unc_model, "output_channels"): # time grid dependent unc model has a time dim length built-in
+            traj_len = self.unc_model.output_channels
+        elif hasattr(self.mean_model, "traj_len"): # full trajectory mean model wrapper
+            traj_len = self.mean_model.traj_len
+        elif final_step is not None: # autoregressive models; only final_step is given, not traj_len
+            traj_len = final_step
+        elif self.default_unc_traj_len is not None: # autoregressive mean model, method is called without final_step
+            traj_len = self.default_unc_traj_len
+        else:
+            raise RuntimeError("Could not determine the value of traj_len;" \
+            "no wrapper traj_len, final_step, or default_unc_traj_len was provided. Cannot" \
+            "determine how many time slices to provide uncertainties for.")
+        return traj_len
 
     
     def _task_norm_helper(self, xx, grid, pde_param):
@@ -72,7 +123,17 @@ class MeanUncModel(ProbModel):
         xx_unc, grid_unc, pde_param_unc = self._task_norm_helper(xx, grid, pde_param)
         if not self.if_conditional:
             pde_param_unc = None
-        uncs_by_timestep = torch.exp(self.unc_model(xx_unc, grid_unc, pde_param=pde_param_unc, t_idx=t_idx))
+        if getattr(self.unc_model, "time_grid_independent", False):
+            traj_len = self._get_traj_len()
+            time_coord = self._build_time_coord(grid, t_idx, traj_len)
+        else:
+            time_coord = None
+
+        uncs_by_timestep = torch.exp(self.unc_model(xx_unc, 
+                                                    grid_unc, 
+                                                    pde_param=pde_param_unc, 
+                                                    t_idx=t_idx,
+                                                    time_coord=time_coord))
         return uncs_by_timestep.mean(dim=1) # scalar uncertainty for the entire trajectory
     
     def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
@@ -80,7 +141,10 @@ class MeanUncModel(ProbModel):
     
        
     
-    def unc_roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
+    def unc_roll_out(self, xx, grid, final_step, 
+                     pde_param=None, t_idx=None, return_features=False,
+                     #num_time_steps=41, 
+                     time_coord=None):
         
         # right now, we assume self.mean_model is FNOFullTrajectory, 
         # which is initialized with traj_len, from which final_step is probably obtained
@@ -95,7 +159,18 @@ class MeanUncModel(ProbModel):
         if not self.if_conditional:
             pde_param_unc = None
 
-        log_uncs_by_timestep = self.unc_model(xx_unc, grid_unc, pde_param=pde_param_unc, t_idx=t_idx) # log sigmas
+        if time_coord is None and getattr(self.unc_model, "time_grid_independent", False):
+            traj_len = self._get_traj_len(final_step=final_step)
+            time_coord = self._build_time_coord(grid, t_idx, traj_len)
+
+        log_uncs_by_timestep = self.unc_model.roll_out(xx_unc, 
+                                                       grid_unc, 
+                                                       final_step, 
+                                                       pde_param=pde_param_unc, 
+                                                       t_idx=t_idx,
+                                                       #num_time_steps=num_time_steps,
+                                                       time_coord=time_coord
+                                                       ) # log sigmas
 
         uncs_by_timestep = torch.exp(log_uncs_by_timestep) # sigmas 
         # spatial_shape: tuple, e.g. (nx1, nx2) or (nx1, nx2, nx3)
@@ -251,8 +326,20 @@ class MeanUncModel(ProbModel):
             xx_unc, grid_unc, pde_param_unc = self._task_norm_helper(xx, grid, pde_param)
             if not self.if_conditional:
                 pde_param_unc = None
-
-            log_sigma_t = self.unc_model.roll_out(xx_unc, grid_unc, yy.shape[-2], pde_param=pde_param_unc, t_idx=t_idx)
+            if getattr(self.unc_model, "time_grid_independent", False):
+                traj_len = self._get_traj_len(yy.shape[-2])
+                time_coord = self._build_time_coord(grid, 
+                                                  t_idx, 
+                                                  traj_len)
+            else:
+                time_coord = None
+            log_sigma_t = self.unc_model.roll_out(xx_unc, grid_unc, 
+                                                  yy.shape[-2], 
+                                                  pde_param=pde_param_unc, 
+                                                  t_idx=t_idx,
+                                                  #num_time_steps=yy.shape[-2],
+                                                  time_coord=time_coord
+                                                  )
             loss = self.gaussian_nll(pred, yy, log_sigma_t, self.initial_step, reduction='mean')
 
             self.optimizer.zero_grad()
@@ -381,14 +468,14 @@ def build_mean_unc_model(task, cfg):
     elif "traj_len" in cfg.model_wrapper.model:
         output_channels = cfg.model_wrapper.model.traj_len # full trajectory fno support
     else:
-        raise ValueError(
-            "MeanUncModel needs unc_model.traj_len when the mean model does not define model.traj_len"
-        )
-    unc_model_factory = functools.partial(UncertaintyModelFullTrajectory1d, 
+        output_channels = None
+    unc_model_class = hydra.utils.get_class(cfg.unc_model._target_)
+    unc_model_factory = functools.partial(unc_model_class, 
                                           input_channels = input_channels,
                                           hidden_units = cfg.unc_model.hidden_units,
                                           output_channels = output_channels,
                                           input_grid_dim = input_grid_dim,
+                                          fully_connected_out_features = cfg.unc_model.get("fully_connected_out_features", 128),
                                           task = task,
                                            training_type = cfg.model_wrapper.training_type,
                                            t_train = cfg.model_wrapper.t_train,
@@ -397,6 +484,7 @@ def build_mean_unc_model(task, cfg):
                                            vis_period = cfg.model_wrapper.vis_period,
                                            loss = mean_model.loss,
                                            activation = hydra.utils.instantiate(cfg.unc_model.activation),
+                                           max_pool_output_size = cfg.unc_model.get("max_pool_output_size", 8),
                                            distribution = cfg.unc_model.distribution
                                            
                                              )
@@ -420,6 +508,9 @@ def build_mean_unc_model(task, cfg):
                         val_period = cfg.model_wrapper.val_period,
                         vis_period = cfg.model_wrapper.vis_period,
                         loss = mean_model.loss,
+                        time_coord_mode=cfg.unc_model.get("time_coord_mode", "abs_time"),
+                       # time_coord_norm_mode=cfg.unc_model.time_coord_norm_mode
+                        default_unc_traj_len=cfg.unc_model.get("traj_len", None)
                     )
 
 

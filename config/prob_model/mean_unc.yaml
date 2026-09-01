@@ -2,12 +2,5 @@ _target_: al4pde.prob_models.mean_unc_model.MeanUncModel
 
 defaults:
   - model_wrapper: fno_full_traj
-
-unc_model:
-  hidden_units: 16
-  distribution: normal
-  if_conditional: true
-  traj_len: 41 # 41 is training temporal resolution for Burgers and KS
-  activation:
-    _target_: torch.nn.ReLU
+  - unc_model: full_traj_1d
     
