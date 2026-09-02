@@ -190,6 +190,7 @@ class MeanUncModel(ProbModel):
         elif mean_traj.shape[-2] < final_step:
             raise ValueError(f"Mean trajectory is shorter than final_step: {mean_traj.shape[-2]} < {final_step}")
         uncs_by_timestep = uncs_by_timestep[..., :final_step]
+        uncs_by_timestep[:, 0:self.initial_step] = 0.0 # zero out initial uncs
         B, T = uncs_by_timestep.shape
         unc_traj = uncs_by_timestep.reshape(B, *([1] * len(spatial_shape)), T, 1)
         # expansion along channels is probably dubious for nc > 1 unless unc model is expanded to calculate unc for each channel
@@ -219,16 +220,37 @@ class MeanUncModel(ProbModel):
         return self.mean_model.reduce_input_res(xx, grid)
     
     def eval_pred(self, xx, yy, grid, pde_param=None, t_idx=None):
-        return self.mean_model.eval_pred(xx, yy, grid, param=pde_param, t_idx=t_idx)
+        xx = xx.to(device)
+        grid = grid.to(device)
+        yy = yy.to(device)
+        pde_param = pde_param.to(device)
+        t_idx = t_idx.to(device)
+        time_coord = self._build_time_coord(grid, t_idx, yy.shape[-2])
+        pred, unc = self.unc_roll_out(xx, 
+                                      grid, 
+                                      yy.shape[-2], 
+                                      pde_param=pde_param, 
+                                      t_idx=t_idx,
+                                      return_features=False,
+                                      time_coord=time_coord)
+        onestep_pred = self.mean_model.one_step_pred(yy, grid, pde_param, t_idx)
+        return {"pred": pred, 
+                "unc": unc, 
+                "onestep_pred": onestep_pred, 
+                "yy": yy, 
+                "param": pde_param,
+                "grid": grid,
+                "t_idx": t_idx}
+
 
     def validate(self, step, val_loader=None, train_loader=None, prefix=""):
-        self.mean_model.validate(step, 
-                                 val_loader=val_loader, 
-                                 train_loader=train_loader, 
-                                 prefix=prefix)
+        super().validate(step, 
+                        val_loader=val_loader, 
+                        train_loader=train_loader, 
+                        prefix=prefix)
     
     def evaluate(self, step, loader, prefix, time_step_name = "total_epoch", extra_log = None):
-        return self.mean_model.evaluate(step, loader, prefix, time_step_name=time_step_name, extra_log=extra_log)
+        return super().evaluate(step, loader, prefix, time_step_name=time_step_name, extra_log=extra_log)
 
     def visualize(self, total_epoch):
         return self.mean_model.visualize(total_epoch)
