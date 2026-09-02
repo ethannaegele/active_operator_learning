@@ -106,16 +106,28 @@ def model_error_histogram_plotter(
                                   test_folder: str, # folder for test or val set data, eg data/data/Burgers/val
                                   out_dir: str, # directory to save plots under
                                   pde_name: str, # eg 'burgers'
-                                  time_index: int | list[int], # time index to plot
+                                  time_index: int | list[int] | None, # time index to plot
                                   current_directory: str,
                                   sample_index: int | list[int] = 0, # index of observation from test set to examine
+                                  slice_by_time: bool = True, # plot shows errors for a single time slice, or all errors across all time slices?
+                                  slice_by_space: bool = False, # plot shows errors for a single spatial point?
+                                  x_index: int | list[int] | None = None,
                                   checkpoint_name: str = '4.pt',
                                   config_name: str = 'main',
                                   load_eval_model: bool = False,
                                   show_theoretical_dist: bool = True,
                                   show_plots: bool = True
                                   ):
-    
+    if (time_index is not None and not slice_by_time) or (time_index is None and slice_by_time):
+        raise ValueError("Invalid combination. If time_index is provided," \
+        "slice_by_time must be True. If time_index is not provided," \
+        "slice_by_time must be False.")
+    if slice_by_space and slice_by_time:
+        raise ValueError("slice_by_time and slice_by_space cannot both be True")
+    if (x_index is not None and not slice_by_space) or (x_index is None and slice_by_space):
+        raise ValueError("Invalid combination. If x_index is provided," \
+        "slice_by_space must be True. If x_index is not provided," \
+        "slice_by_space must be False.")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     pde_name = pde_name.lower()
     prob_model, test_data, task, al_iter, cfg = setup_loader(run_id, 
@@ -136,9 +148,19 @@ def model_error_histogram_plotter(
     # grid: spatial grid
     # pde_param: PDE parameter
     # t_idx: starting time index
-    #sample_idx = 0
     sample_index_list = [sample_index] if isinstance(sample_index, int) else sample_index
-    time_index_list = [time_index] if isinstance(time_index, int) else time_index
+    if slice_by_time:
+        if isinstance(time_index, int):
+            index_list = [time_index]
+        else:
+            index_list = time_index
+    elif slice_by_space:
+        if isinstance(x_index, int):
+            index_list = [x_index]
+        else:
+            index_list = x_index
+    else:
+        index_list = ["ALL"]
     for sample_idx in sample_index_list:
         xx, yy, grid, pde_param, t_idx = test_data[sample_idx]
 
@@ -162,19 +184,34 @@ def model_error_histogram_plotter(
                 )
 
         os.makedirs(out_dir, exist_ok=True)
+        for idx in index_list:
+            if slice_by_time:
+                # errors at a specific time slice
+                true_np = yy[0, :, idx, 0].detach().cpu().numpy()
+                pred_np = pred[0, :, idx, 0].detach().cpu().numpy()
+                if show_theoretical_dist:
+                    unc_np = unc[0, 0, idx, 0].detach().cpu().numpy() # should be a scalar, ie a np.float64 or similar, representing the uncertainty for that time slice
+                err_np = pred_np - true_np
+                err_np = err_np.reshape(-1)
+            elif slice_by_space:
+                # errors at a specific space slice
+                true_np = yy[0, idx, :, 0].detach().cpu().numpy()
+                pred_np = pred[0, idx, :, 0].detach().cpu().numpy()
+                if show_theoretical_dist:
+                    # placeholder behavior since unc model is not trained to predict one unc per spatial point
+                    unc_np = unc[0:1, idx:idx+1, :, 0:1].detach.cpu().mean(dim=-2).item() # mean uncertainty at that spatial point across all time
+                    unc_np = np.float32(unc_np)
+                err_np = pred_np - true_np
+                err_np = err_np.reshape(-1)
+            else:
+                true_np = yy[0, :, :, 0].detach().cpu().numpy()
+                pred_np = pred[0, :, :, 0].detach().cpu().numpy()
+                if show_theoretical_dist:
+                    # placeholder behavior since unc model is not trained to predict one global unc
+                    unc_np = unc[0, :, :, :].detach().cpu().numpy().mean() # single scalar uncertainty for all space/time/channels
+                err_np = pred_np - true_np
+                err_np = err_np.reshape(-1)
 
-        for time_idx in time_index_list:
-            # errors at a specific time slice
-            true_np = yy[0, :, time_idx, 0].detach().cpu().numpy()
-            pred_np = pred[0, :, time_idx, 0].detach().cpu().numpy()
-            if show_theoretical_dist:
-                unc_np = unc[0, 0, time_idx, 0].detach().cpu().numpy() # should be a scalar, ie a np.float64 or similar, representing the uncertainty for that time slice
-            err_np = pred_np - true_np
-            err_np = err_np.reshape(-1)
-
-            # print("Prediction:", pred_np)
-            # print("True function:", true_np)
-            #print("Errors:", err_np)
             if show_theoretical_dist:
                 print(f"uncertainty at sample index {sample_idx}, time index {time_idx}:", unc_np)
 
@@ -188,17 +225,32 @@ def model_error_histogram_plotter(
                 x = np.linspace(bin_edges[0], bin_edges[-1], num = 1000)
                 y = 1 / np.sqrt(2 * np.pi * unc_np**2) * np.exp(-x**2 / (2 * unc_np**2))
                 plt.plot(x, y, color = 'blue', label='Theoretical Error Distribution')
-            plt.title(f"Model errors at time index {time_idx}")
+            if slice_by_time:
+                plt.title(f"Model errors at time index {idx}")
+            elif slice_by_space:
+                plt.title(f"Model errors at x index {idx}")
+            else:
+                plt.title("Model errors across all space and time")
             plt.xlabel("Error")
             plt.ylabel("Density")
             plt.legend()
             plt.tight_layout()
-            plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{time_idx}.png", dpi=200)
+            if slice_by_time:
+                plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{idx}.png", dpi=200)
+            elif slice_by_space:
+                plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_x_index_{idx}.png", dpi=200)
+            else:
+                plt.savefig(f"{out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_{idx}.png", dpi=200)
             if show_plots:
                 plt.show()
             plt.close()
 
-            print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{time_idx}.png")
+            if slice_by_time:
+                print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_time_index_{idx}.png")
+            elif slice_by_space:
+                print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_x_index_{idx}.png")
+            else:
+                print(f"Saved plot to: {out_dir}/err_{pde_name}_hist_{run_id}_sample_index_{sample_idx}_{idx}.png")
 
 
 def test_trajectory_visualizer(run_id: str, 
