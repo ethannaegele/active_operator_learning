@@ -213,9 +213,9 @@ class MeanUncModel(ProbModel):
             # actual grad calculation step to estimate model change:
             if use_nll_loss:
                 loss = self.gaussian_nll(pred, mc_yy, log_sigma_t, self.initial_step, reduction='mean')
-                params = list(self.mean_model.model.parameters()) + list(self.unc_model.parameters())
+                params = [p for p in list(self.mean_model.model.parameters()) + list(self.unc_model.parameters()) if p.requires_grad]
             else:
-                params = list(self.mean_model.model.parameters())
+                params = [p for p in list(self.mean_model.model.parameters()) if p.requires_grad]
                 loss = self.loss(pred, mc_yy, initial_step=self.initial_step)
             grads = torch.autograd.grad(loss, 
                                         params,
