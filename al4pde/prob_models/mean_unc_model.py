@@ -221,7 +221,7 @@ class MeanUncModel(ProbModel):
                                         params,
                                         retain_graph=m < num_mc_samples - 1,
                                         )
-            grad_norm = torch.sqrt(sum((g.detach() ** 2).sum() for g in grads))
+            grad_norm = torch.sqrt(sum((g.detach().abs() ** 2).sum() for g in grads))
             score += grad_norm
         return score / num_mc_samples # MC estimate of expected model change, shape [1]
         
