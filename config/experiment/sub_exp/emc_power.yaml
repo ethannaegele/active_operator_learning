@@ -1,0 +1,8 @@
+defaults:
+  - override /acquisition: emc
+
+acquisition:
+  selection_mode:  power
+
+wandb:
+  name: emc_power

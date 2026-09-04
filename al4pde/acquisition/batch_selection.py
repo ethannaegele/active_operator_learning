@@ -8,6 +8,8 @@ from al4pde.acquisition.data_schedule import DataSchedule
 from al4pde.evaluation.analysis import batch_errors
 from al4pde.prob_models.prob_model import ProbModel
 from scripts.gen_data import generate_data
+from al4pde.prob_models.mean_unc_model import MeanUncModel
+from al4pde.prob_models.mean_unc_internal import MeanUnc
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -79,6 +81,23 @@ class BatchSelection:
 
             else:
                 raise ValueError(self.unc_eval_mode)
+
+    def expected_model_change(self, 
+                              prob_model: MeanUnc | MeanUncModel, 
+                              x, 
+                              grid, 
+                              pde_params, 
+                              num_mc_samples, 
+                              use_nll_loss):
+        t_idx = torch.zeros([len(x)], device=x.device)
+        x, grid = prob_model.reduce_input_res(x, grid)
+        return prob_model.expected_model_change(x, 
+                                               grid, 
+                                               self.unc_num_rollout_steps,
+                                               pde_param=pde_params, 
+                                                t_idx=t_idx, 
+                                                num_mc_samples=num_mc_samples,
+                                               use_nll_loss=use_nll_loss)
 
     def simulate_all(self, prob_model: ProbModel, ics: torch.Tensor, pde_params: torch.Tensor, al_iter: int,
                      ic_params: TensorDict, pde_params_normed: torch.Tensor) -> None:

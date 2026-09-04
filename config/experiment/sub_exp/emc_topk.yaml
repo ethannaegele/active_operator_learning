@@ -1,0 +1,8 @@
+defaults:
+  - override /acquisition: emc
+
+acquisition:
+  selection_mode: top_k
+
+wandb:
+  name: emc_topk

@@ -1,0 +1,8 @@
+defaults:
+  - base
+_target_: al4pde.acquisition.model_change_based.ModelChangeBased
+pool_size: 100000
+selection_mode:  power
+num_mc_samples: 10
+use_nll_loss: true
+pred_batch_size: ${acquisition.batch_size}

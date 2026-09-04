@@ -66,16 +66,19 @@ class PoolBased(BatchSelection):
 
         return ics_train, pde_params_train, ic_pool, pde_params_pool, pde_params_normed_pool, ic_params_pool
 
-    def generate(self, prob_model: ProbModel, al_iter: int, train_loader: torch.utils.data.DataLoader)-> None:
-        with torch.no_grad():
+    def generate(self, prob_model: ProbModel, al_iter: int, 
+                 train_loader: torch.utils.data.DataLoader, 
+                 enable_grads: bool = False)-> None:
+        with torch.no_grad(): 
 
             t = time.time()
 
             (ics_train, pde_params_train, ic_pool, pde_params_pool, pde_params_normed_pool,
              ic_params_pool) = self.prepare_data(train_loader)
 
-            sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
-                                       self.task.get_grid()[0], al_iter, train_loader)
+            with torch.set_grad_enabled(enable_grads): # torch.no_grad() except for ModelChangeBased
+                sel_idx = self.select_next(prob_model, ic_pool, pde_params_pool, ics_train, pde_params_train,
+                                        self.task.get_grid()[0], al_iter, train_loader)
 
             print(len(sel_idx), len(self.pool_mask[self.pool_mask]))
             new_mask = self.pool_mask.clone()[self.pool_mask]

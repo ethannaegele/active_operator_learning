@@ -190,12 +190,41 @@ class MeanUncModel(ProbModel):
         elif mean_traj.shape[-2] < final_step:
             raise ValueError(f"Mean trajectory is shorter than final_step: {mean_traj.shape[-2]} < {final_step}")
         uncs_by_timestep = uncs_by_timestep[..., :final_step]
-        uncs_by_timestep[:, 0:self.initial_step] = 0.0 # zero out initial uncs
+        mask = torch.ones_like(uncs_by_timestep)
+        mask[:, 0:self.initial_step] = 0.0
+        uncs_by_timestep = uncs_by_timestep * mask # zero out initial uncs in autograd-friendly way
+        #uncs_by_timestep[:, 0:self.initial_step] = 0.0 
         B, T = uncs_by_timestep.shape
         unc_traj = uncs_by_timestep.reshape(B, *([1] * len(spatial_shape)), T, 1)
         # expansion along channels is probably dubious for nc > 1 unless unc model is expanded to calculate unc for each channel
         unc_traj = unc_traj.expand(B, *spatial_shape, final_step, nc)
         return mean_traj, unc_traj
+
+    def expected_model_change(self, xx, grid, final_step, pde_param, t_idx, num_mc_samples, use_nll_loss):
+        pred, unc = self.unc_roll_out(xx, grid, final_step, pde_param, t_idx, time_coord=None)
+        spatial_dim = self.task.spatial_dim
+        reduction_slice = (slice(None),) + (0,) * spatial_dim + (slice(None),) + (0,) # slice like unc[:, 0, ..., 0, :, 0]
+        log_sigma_t = torch.log(unc[reduction_slice].clamp_min(1e-8)) # [B, spatial, T, C] -> [B, T], assumes unc same for each channel
+        
+        score = 0
+        for m in range(num_mc_samples):
+            simulated_error = torch.normal(mean = torch.zeros_like(pred), std = unc)
+            mc_yy = (pred + simulated_error).detach() # y = pred + mean zero error, so estimates actual yy
+            # actual grad calculation step to estimate model change:
+            if use_nll_loss:
+                loss = self.gaussian_nll(pred, mc_yy, log_sigma_t, self.initial_step, reduction='mean')
+                params = list(self.mean_model.model.parameters()) + list(self.unc_model.parameters())
+            else:
+                params = list(self.mean_model.model.parameters())
+                loss = self.loss(pred, mc_yy, initial_step=self.initial_step)
+            grads = torch.autograd.grad(loss, 
+                                        params,
+                                        retain_graph=m < num_mc_samples - 1,
+                                        )
+            grad_norm = torch.sqrt(sum((g.detach() ** 2).sum() for g in grads))
+            score += grad_norm
+        return score / num_mc_samples # MC estimate of expected model change, shape [1]
+        
 
     def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
         return self.mean_model.roll_out(xx, grid, final_step, pde_param, t_idx, return_features)

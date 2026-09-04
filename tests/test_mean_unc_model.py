@@ -181,6 +181,7 @@ def make_mean_unc_model(mean_model, unc_model):
     nn.Module.__init__(model)
     model.mean_model = mean_model
     model.unc_model = unc_model
+    model.initial_step = 0
     model.if_conditional = True
     model.task = DummyTask()
     model.skip_initial_steps = DummyTask.skip_initial_steps
