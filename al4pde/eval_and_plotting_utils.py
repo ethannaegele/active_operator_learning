@@ -526,8 +526,7 @@ def save_final_eval_metrics(run_id: str,
         entity=cfg.wandb.entity if "entity" in cfg.wandb else None,
         id=run_id,
         resume="must",
-        name=cfg.wandb.name,
-        config=OmegaConf.to_container(cfg, resolve=True),
+        name=cfg.wandb.name
     )
 
     res = prob_model.evaluate(
@@ -557,6 +556,17 @@ def save_final_eval_metrics(run_id: str,
         json.dump(res_combined, f, indent=2)
 
     wandb.save(save_path, base_path=save_dir)
+
+    eval_meta = {"checkpoint_name": checkpoint_name,
+                 "test_folder": test_folder,
+                 "prefix": prefix,
+                 "overrides": overrides}
+    save_path_meta = os.path.join(save_dir, f"{file_name}_metadata.json")
+
+    with open(save_path_meta, "w") as f:
+        json.dump(eval_meta, f, indent=2)
+
+    wandb.save(save_path_meta, base_path=save_dir)
 
     wandb.finish()
 
