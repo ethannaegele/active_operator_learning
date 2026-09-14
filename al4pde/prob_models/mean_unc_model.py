@@ -14,6 +14,7 @@ from al4pde.models.build_wrapper import build_wrapper
 from al4pde.evaluation.analysis import batch_errors
 from al4pde.utils import subsample_grid
 from al4pde.evaluation.stats import LossUncCorr, UncAvg
+from al4pde.prob_models.unc_model import ConvTapSpec, FCTapSpec
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -505,6 +506,65 @@ class MeanUncModel(ProbModel):
         self.optimizer.load_state_dict(state["optimizer"])
         self.scheduler.load_state_dict(state["scheduler"])
 
+def build_activation(tap, default_activation_cfg):
+    activation_cfg = tap.get("activation", default_activation_cfg)
+    return hydra.utils.instantiate(activation_cfg)
+
+def build_conv_taps(cfg) -> list[ConvTapSpec]:
+    if cfg.get("unc_model", None) is None:
+        return []
+
+    taps = []
+    default_activation_cfg = cfg.unc_model.get("activation", {"_target_": "torch.nn.ReLU"})
+    for tap in cfg.unc_model.get("conv_taps", []):
+        if not tap.get("enabled", False):
+            continue
+
+        taps.append(
+            ConvTapSpec(
+                name=tap.get("name", "block1"),
+                enabled=True,
+                in_channels=tap.get("in_channels", 3),
+                out_channels=tap.get("out_channels", 128),
+                kernel_size=tap.get("kernel_size", 3),
+                stride = tap.get("stride", 1),
+                padding = tap.get("padding", 1),
+                use_pool = tap.get("use_pool", True),
+                pool_type = tap.get("pool_type", "max"),
+                adaptive_pool = tap.get("adaptive_pool", True),
+                adaptive_pool_output_size = tap.get("adaptive_pool_output_size", 8),
+                pool_kernel_size = tap.get("pool_kernel_size", 2),
+                pool_stride = tap.get("pool_stride", 2),
+                activation = build_activation(tap, default_activation_cfg)
+            )
+        )
+
+    return taps
+
+def build_fc_taps(cfg) -> list[FCTapSpec]:
+    if cfg.get("unc_model", None) is None:
+        return []
+
+    taps = []
+    default_activation_cfg = cfg.unc_model.get("activation", {"_target_": "torch.nn.ReLU"})
+    for tap in cfg.unc_model.get("fc_taps", []):
+        if not tap.get("enabled", False):
+            continue
+
+        taps.append(
+            FCTapSpec(
+                name=tap.get("name", "fc1"),
+                enabled=True,
+                in_channels=tap.get("in_channels", 128),
+                out_channels=tap.get("out_channels", 128),
+                use_end_activation=tap.get("use_end_activation", False),
+                activation=build_activation(tap, default_activation_cfg)
+            )
+        )
+
+    return taps
+
+
 def build_mean_unc_model(task, cfg):
     if task.spatial_dim != 1:
         raise NotImplementedError("Only 1D spatial tasks supported currently.")
@@ -524,12 +584,16 @@ def build_mean_unc_model(task, cfg):
     else:
         output_channels = None
     unc_model_class = hydra.utils.get_class(cfg.unc_model._target_)
+    conv_taps = build_conv_taps(cfg)
+    fc_taps = build_fc_taps(cfg)
     unc_model_factory = functools.partial(unc_model_class, 
                                           input_channels = input_channels,
                                           hidden_units = cfg.unc_model.hidden_units,
                                           output_channels = output_channels,
                                           input_grid_dim = input_grid_dim,
                                           fully_connected_out_features = cfg.unc_model.get("fully_connected_out_features", 128),
+                                          conv_taps = conv_taps,
+                                          fc_taps = fc_taps,
                                           task = task,
                                            training_type = cfg.model_wrapper.training_type,
                                            t_train = cfg.model_wrapper.t_train,

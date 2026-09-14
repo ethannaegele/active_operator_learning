@@ -1,0 +1,117 @@
+_target_: al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1dFlexible
+
+distribution: normal
+if_conditional: true
+traj_len: 41
+hidden_units: 16
+
+activation:
+  _target_: torch.nn.ReLU
+
+conv_taps:
+  - name: first
+    enabled: true
+    in_channels: 3 # may be overridden at build time to match the problem setting
+    out_channels: 16
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    use_pool: true
+    pool_type: "max"
+    adaptive_pool: true
+    adaptive_pool_output_size: 128
+    activation:
+      _target_: torch.nn.ReLU
+
+  - name: block1
+    enabled: true
+    in_channels: 16
+    out_channels: 32
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    use_pool: false
+    activation:
+      _target_: torch.nn.ReLU
+
+  - name: block2
+    enabled: true
+    in_channels: 32
+    out_channels: 64
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    use_pool: true
+    pool_type: "max"
+    adaptive_pool: true
+    adaptive_pool_output_size: 64
+    activation:
+      _target_: torch.nn.ReLU
+    
+
+  - name: block3
+    enabled: true
+    in_channels: 64
+    out_channels: 128
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    use_pool: true
+    pool_type: "max"
+    adaptive_pool: true
+    adaptive_pool_output_size: 32
+    activation:
+      _target_: torch.nn.ReLU
+
+  
+  - name: last
+    enabled: true
+    in_channels: 128
+    out_channels: 256
+    kernel_size: 3
+    stride: 1
+    padding: 1
+    use_pool: true
+    pool_type: "max"
+    adaptive_pool: true
+    adaptive_pool_output_size: 16
+    activation:
+      _target_: torch.nn.ReLU
+
+fc_taps:
+  - name: first
+    enabled: true
+    in_channels: 2048 # overridden at build time to match the output of last conv block
+    out_channels: 512
+    activation:
+      _target_: torch.nn.ReLU
+
+  - name: fc1
+    enabled: true
+    in_channels: 512
+    out_channels: 256
+    activation:
+      _target_: torch.nn.ReLU
+  
+  - name: fc2
+    enabled: true
+    in_channels: 256
+    out_channels: 256
+    activation:
+      _target_: torch.nn.ReLU
+  
+  - name: fc3
+    enabled: true
+    in_channels: 256
+    out_channels: 128
+    activation:
+      _target_: torch.nn.ReLU
+
+  - name: last
+    enabled: true
+    in_channels: 128
+    out_channels: ${prob_model.unc_model.traj_len}
+    use_end_activation: false
+    activation:
+      _target_: torch.nn.ReLU
+

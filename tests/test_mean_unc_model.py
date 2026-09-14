@@ -8,7 +8,10 @@ from unittest.mock import patch
 from al4pde.prob_models.build_prob_model import build_prob_model
 from al4pde.prob_models.mean_unc_model import MeanUncModel
 from al4pde.prob_models.unc_model import (
+    ConvTapSpec,
+    FCTapSpec,
     UncertaintyModelFullTrajectory1d,
+    UncertaintyModelFullTrajectory1dFlexible,
     UncertaintyModelFullTrajectory1dTimeIndep,
 )
 
@@ -199,6 +202,8 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             output_channels=3,
             input_grid_dim=4,
             fully_connected_out_features=None,
+            conv_taps=[],
+            fc_taps=[],
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -227,6 +232,8 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             output_channels=5,
             input_grid_dim=8,
             fully_connected_out_features=None,
+            conv_taps=[],
+            fc_taps=[],
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -253,6 +260,8 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             output_channels=3,
             input_grid_dim=8,
             fully_connected_out_features=None,
+            conv_taps=[],
+            fc_taps=[],
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -276,6 +285,8 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             output_channels=3,
             input_grid_dim=8,
             fully_connected_out_features=None,
+            conv_taps=[],
+            fc_taps=[],
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -296,6 +307,8 @@ class MeanUncertaintyModelTest(unittest.TestCase):
             output_channels=None,
             input_grid_dim=None,
             fully_connected_out_features=6,
+            conv_taps=[],
+            fc_taps=[],
             task=DummyTask(),
             training_type="full_trajectory",
             t_train=5,
@@ -569,6 +582,225 @@ class MeanUncertaintyModelTest(unittest.TestCase):
         self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
         self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
         self.assertFalse(torch.allclose(unc_traj[:, :, 0, :], unc_traj[:, :, -1, :]))
+
+    def test_flexible_uncertainty_model_roll_out_returns_log_sigma_horizon(self):
+        model = UncertaintyModelFullTrajectory1dFlexible(
+            input_channels=4,
+            hidden_units=4,
+            output_channels=5,
+            input_grid_dim=8,
+            fully_connected_out_features=6,
+            conv_taps=[
+                ConvTapSpec(
+                    name="first",
+                    enabled=True,
+                    in_channels=999,
+                    out_channels=4,
+                    activation=nn.ReLU(),
+                    adaptive_pool_output_size=4,
+                ),
+                ConvTapSpec(
+                    name="last",
+                    enabled=True,
+                    in_channels=4,
+                    out_channels=3,
+                    activation=nn.ReLU(),
+                    adaptive_pool_output_size=2,
+                ),
+            ],
+            fc_taps=[
+                FCTapSpec(
+                    name="first",
+                    enabled=True,
+                    in_channels=999,
+                    out_channels=7,
+                    activation=nn.ReLU(),
+                ),
+                FCTapSpec(
+                    name="last",
+                    enabled=True,
+                    in_channels=7,
+                    out_channels=999,
+                    use_end_activation=False,
+                    activation=nn.ReLU(),
+                ),
+            ],
+            task=DummyTask(),
+            training_type="full_trajectory",
+            t_train=5,
+            batch_size=2,
+            val_period=1,
+            vis_period=1,
+            loss=DummyLoss(),
+            activation=nn.ReLU(),
+        )
+
+        log_sigma = model.roll_out(
+            torch.randn(2, 8, 2, 1),
+            torch.randn(2, 8, 1),
+            final_step=3,
+            pde_param=torch.randn(2, 1),
+        )
+
+        self.assertEqual(log_sigma.shape, (2, 3))
+        self.assertEqual(model.first_fc_input_channels, 6)
+        self.assertEqual(model.conv_heads_sequential[0].in_channels, 4)
+        self.assertEqual(model.fc_heads_sequential[0].in_features, 6)
+
+    def test_flexible_uncertainty_model_rejects_missing_final_adaptive_pool(self):
+        with self.assertRaisesRegex(RuntimeError, "Last layer"):
+            UncertaintyModelFullTrajectory1dFlexible(
+                input_channels=4,
+                hidden_units=4,
+                output_channels=5,
+                input_grid_dim=8,
+                fully_connected_out_features=6,
+                conv_taps=[
+                    ConvTapSpec(
+                        name="first",
+                        enabled=True,
+                        in_channels=999,
+                        out_channels=4,
+                        activation=nn.ReLU(),
+                    ),
+                    ConvTapSpec(
+                        name="block1",
+                        enabled=True,
+                        in_channels=4,
+                        out_channels=3,
+                        use_pool=False,
+                        activation=nn.ReLU(),
+                    ),
+                ],
+                fc_taps=[
+                    FCTapSpec(
+                        name="first",
+                        enabled=True,
+                        in_channels=999,
+                        out_channels=7,
+                        activation=nn.ReLU(),
+                    ),
+                    FCTapSpec(
+                        name="last",
+                        enabled=True,
+                        in_channels=7,
+                        out_channels=999,
+                        use_end_activation=False,
+                        activation=nn.ReLU(),
+                    ),
+                ],
+                task=DummyTask(),
+                training_type="full_trajectory",
+                t_train=5,
+                batch_size=2,
+                val_period=1,
+                vis_period=1,
+                loss=DummyLoss(),
+                activation=nn.ReLU(),
+            )
+
+    def test_build_prob_model_flexible_unc_roll_out_uses_tap_dimensions(self):
+        xx = torch.ones(2, 8, 2, 1)
+        yy = torch.ones(2, 8, 5, 1) * 2.0
+        grid = torch.linspace(0, 1, 8).reshape(1, 8, 1).repeat(2, 1, 1)
+        pde_param = torch.zeros(2, 1)
+        t_idx = torch.zeros(2)
+        train_loader = [(xx, yy, grid, pde_param, t_idx)]
+        mean_model = BuildableTrainableMeanModel(train_loader)
+        cfg = OmegaConf.create({
+            "_target_": "al4pde.prob_models.mean_unc_model.MeanUncModel",
+            "model_wrapper": {
+                "_target_": "unused.because.build_wrapper.is.mocked",
+                "training_type": "full_trajectory",
+                "t_train": 5,
+                "batch_size": 2,
+                "val_period": 999,
+                "vis_period": 999,
+                "noise": 0.0,
+                "noise_mode": "constant",
+                "block_grad": False,
+                "max_grad_norm": None,
+                "step_batch": -1,
+                "optimizer": {
+                    "_target_": "torch.optim.SGD",
+                    "lr": 0.1,
+                },
+                "scheduler": {
+                    "_target_": "torch.optim.lr_scheduler.StepLR",
+                    "step_size": 100,
+                    "gamma": 1.0,
+                },
+                "model": {
+                    "traj_len": 5,
+                },
+            },
+            "unc_model": {
+                "_target_": "al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1dFlexible",
+                "hidden_units": 4,
+                "distribution": "normal",
+                "if_conditional": True,
+                "traj_len": 5,
+                "activation": {
+                    "_target_": "torch.nn.ReLU",
+                },
+                "conv_taps": [
+                    {
+                        "name": "first",
+                        "enabled": True,
+                        "in_channels": 999,
+                        "out_channels": 4,
+                        "adaptive_pool_output_size": 4,
+                        "activation": {
+                            "_target_": "torch.nn.ReLU",
+                        },
+                    },
+                    {
+                        "name": "last",
+                        "enabled": True,
+                        "in_channels": 4,
+                        "out_channels": 3,
+                        "adaptive_pool_output_size": 2,
+                        "activation": {
+                            "_target_": "torch.nn.GELU",
+                        },
+                    },
+                ],
+                "fc_taps": [
+                    {
+                        "name": "first",
+                        "enabled": True,
+                        "in_channels": 999,
+                        "out_channels": 7,
+                        "activation": {
+                            "_target_": "torch.nn.ReLU",
+                        },
+                    },
+                    {
+                        "name": "last",
+                        "enabled": True,
+                        "in_channels": 7,
+                        "out_channels": 999,
+                        "use_end_activation": False,
+                        "activation": {
+                            "_target_": "torch.nn.ReLU",
+                        },
+                    },
+                ],
+            },
+        })
+
+        with patch("al4pde.prob_models.mean_unc_model.build_wrapper", return_value=mean_model):
+            model = build_prob_model(DummyTask(), cfg)
+        model.init_training(al_iter=0)
+        mean_traj, unc_traj = model.unc_roll_out(xx, grid, final_step=5, pde_param=pde_param, t_idx=t_idx)
+
+        self.assertIsInstance(model.unc_model, UncertaintyModelFullTrajectory1dFlexible)
+        self.assertEqual(model.unc_model.conv_heads_sequential[0].in_channels, 4)
+        self.assertEqual(model.unc_model.first_fc_input_channels, 6)
+        self.assertEqual(model.unc_model.fc_heads_sequential[0].in_features, 6)
+        self.assertIsInstance(model.unc_model.conv_heads_sequential[4], nn.GELU)
+        self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
+        self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
 
 
 if __name__ == "__main__":
