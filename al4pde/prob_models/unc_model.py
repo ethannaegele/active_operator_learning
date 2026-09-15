@@ -20,7 +20,7 @@ class ConvTapSpec:
     out_channels: int
     kernel_size: int = 3
     stride: int = 1
-    padding: int = 1
+    padding: int | str = 1 # supports e.g. padding='same'
     use_pool: bool = True
     pool_type: str = "max"
     adaptive_pool: bool = True
