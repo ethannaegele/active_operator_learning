@@ -86,9 +86,20 @@ model:
           make_channel_first_input: true # output from decoding layer is [B, X, T, C]
           use_end_activation: true
           #activation: gelu
+      - name: after_last_decoder # after second decoding layer
+        enabled: true
+        block_idx: 6
+        head:
+          in_channels: ${prob_model.model_wrapper.model.num_channels} # this cannot be changed
+          hidden_channels: 256
+          out_channels: 128 # learning loss conventional output size
+          num_layers: 1
+          make_channel_first_input: true # output from decoding layer is [B, X, T, C + num_pde_params]
+          use_end_activation: true
+          #activation: gelu
       - name: last # the final fully connected block after features from all unc heads have been concatted
         enabled: true # must be enabled if uncertainty is enabled
-        block_idx: 6
+        block_idx: 7
         head:
           hidden_channels: 256
           out_channels: ${prob_model.model_wrapper.model.num_channels}

@@ -70,6 +70,9 @@ class GAP2dAndFC(nn.Module):
                  make_channel_first_input: bool = False,
                  use_end_activation: bool = True,
                  time_as_second_dim: bool = False, # True for full traj models
+                 num_retained_channels: int | None = None, # not None if head is after final decoder layer
+                 # final decoder layer contains extra channels for pde params that must be stripped.
+                 # Arg specifies num of channels to retain
                  ):
         
         """Learning Loss style uncertainty head containing Global Average 
@@ -80,6 +83,7 @@ class GAP2dAndFC(nn.Module):
 
         self.make_channel_first_input = make_channel_first_input
         self.time_as_second_dim = time_as_second_dim
+        self.num_retained_channels = num_retained_channels
         # if time_as_second_dim:
         #     # average across space X, for each time slice independently -> [T] avg values, dynamically for T
         #     self.gap = nn.AdaptiveAvgPool2d((1, None)) # global average pooling
@@ -102,6 +106,8 @@ class GAP2dAndFC(nn.Module):
         if self.time_as_second_dim:
             x = x.mean(dim=-2) # [B, C, X, T] -> [B, C, T]
             x = x.permute(0, 2, 1) # [B, T, C]
+        if self.num_retained_channels is not None and self.num_retained_channels > 0:
+            x = x[..., :self.num_retained_channels] # [B, T, C + num_pde_params] -> [B, T, C]
         x = self.fcs(x)
         return x # shape [B, T, out_channels] or [B, out_channels]
 

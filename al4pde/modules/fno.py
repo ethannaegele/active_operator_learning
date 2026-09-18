@@ -588,6 +588,7 @@ class FNOFullTrajectory(nn.Module):
                  width=64, 
                  initial_step=1, 
                  padding=2,
+                 num_physical_channels: int | None = None,
                  uncertainty_spec: UncertaintySpec | None = None):
         super(FNOFullTrajectory, self).__init__()
         self.num_channels = num_channels
@@ -604,6 +605,7 @@ class FNOFullTrajectory(nn.Module):
         self.fc1 = nn.Linear(self.width, 128)
         self.fc2 = nn.Linear(128, num_channels)
 
+        self.num_physical_channels = num_physical_channels
         self.uncertainty_spec = uncertainty_spec
         self.uncertainty_enabled = uncertainty_spec is not None and uncertainty_spec.enabled
         self.unc_heads = nn.ModuleDict()
@@ -615,6 +617,10 @@ class FNOFullTrajectory(nn.Module):
                     num_out_channels_sum += tap.out_channels
             for tap in uncertainty_spec.taps:
                 if tap.name != "last":
+
+                    # implicitly assume that if_conditional = True when we strip extra channels
+                    # and for sensible use of FNO, we should use if_conditional = True
+                    num_retained_channels = self.num_physical_channels if tap.name == "after_last_decoder" else None
                     self.unc_heads[tap.name] = GAP2dAndFC(
                         in_channels=tap.in_channels,
                         out_channels=tap.out_channels,
@@ -622,7 +628,8 @@ class FNOFullTrajectory(nn.Module):
                         hidden_channels=tap.hidden_channels,
                         make_channel_first_input=tap.make_channel_first_input,
                         use_end_activation=tap.use_end_activation,
-                        time_as_second_dim=True # can potentially be a config option later
+                        time_as_second_dim=True, # can potentially be a config option later
+                        num_retained_channels=num_retained_channels,
                         )
                     
                 else:
@@ -701,10 +708,10 @@ class FNOFullTrajectory(nn.Module):
         x = torch.cat((x, grid), dim=-1)
         x = self.fc0(x)
         x = x.permute(0, x.dim() - 1, *range(1, x.dim() - 1))
-        #print("shape after encoding and before padding: ", x.shape)
+        #print("shape after encoding and before padding: ", x.shape) # [B, W, X,..., T]
         x = self._pad(x)
 
-        #print("shape after padding: ", x.shape)
+        #print("shape after padding: ", x.shape) # [B, W, X + pad,..., T + pad]
         self._add_unc_outputs(unc_outputs, 0, x)
 
         features = []
@@ -714,20 +721,21 @@ class FNOFullTrajectory(nn.Module):
             if idx < len(self.convs) - 1:
                 x = F.gelu(x)
             self._add_unc_outputs(unc_outputs, idx + 1, x)
-            #print(f"shape after Fourier block {idx}: ", x.shape)
+            #print(f"shape after Fourier block {idx}: ", x.shape) # [B, W, X + pad,..., T + pad]
 
         x = self._unpad(x)
         x = x.permute(0, *range(2, x.dim()), 1)
-        #print("shape immediately before decoder layer 0: ", x.shape)
+        #print("shape immediately before decoder layer 0: ", x.shape) # [B, X,..., T, W]
         x = self.fc1(x)
         x = F.gelu(x)
         self._add_unc_outputs(unc_outputs, 5, x)
-        #print("shape after decoder layer 0: ", x.shape)
+        #print("shape after decoder layer 0: ", x.shape) # [B, X,..., T, 128]
         features.append(x)
         x = self.fc2(x)
-        #print("shape after decoder layer 1: ", x.shape)
+        self._add_unc_outputs(unc_outputs, 6, x)
+        #print("shape after decoder layer 1: ", x.shape) # [B, X,..., T, C + num_pde_param]
         if return_uncertainty:
-            log_sigma = self._aggregate_unc_outputs(unc_outputs, block_idx=6)
+            log_sigma = self._aggregate_unc_outputs(unc_outputs, block_idx=7)
             return x, log_sigma
         if return_features:
             return x, features[-1]
@@ -736,7 +744,8 @@ class FNOFullTrajectory(nn.Module):
 
 class FNO1dFullTrajectory(FNOFullTrajectory):
     def __init__(self, num_channels, modes1=16, modes2=16, width=64, 
-                 initial_step=1, padding=2, 
+                 initial_step=1, padding=2,
+                 num_physical_channels: int | None = None,
                  uncertainty_spec: UncertaintySpec | None = None):
         super(FNO1dFullTrajectory, self).__init__(num_channels, 
                                                   2, 
@@ -744,15 +753,20 @@ class FNO1dFullTrajectory(FNOFullTrajectory):
                                                   width, 
                                                   initial_step, 
                                                   padding,
+                                                  num_physical_channels=num_physical_channels,
                                                   uncertainty_spec=uncertainty_spec)
 
 
 class FNO2dFullTrajectory(FNOFullTrajectory):
-    def __init__(self, num_channels, modes1=12, modes2=12, modes3=12, width=64, initial_step=1, padding=2):
-        super(FNO2dFullTrajectory, self).__init__(num_channels, 3, (modes1, modes2, modes3), width, initial_step, padding)
+    def __init__(self, num_channels, modes1=12, modes2=12, modes3=12, width=64, initial_step=1, padding=2,
+                 num_physical_channels: int | None = None):
+        super(FNO2dFullTrajectory, self).__init__(num_channels, 3, (modes1, modes2, modes3), width, initial_step, padding,
+                                                  num_physical_channels=num_physical_channels)
 
 
 class FNO3dFullTrajectory(FNOFullTrajectory):
-    def __init__(self, num_channels, modes1=8, modes2=8, modes3=8, modes4=8, width=32, initial_step=1, padding=2):
+    def __init__(self, num_channels, modes1=8, modes2=8, modes3=8, modes4=8, width=32, initial_step=1, padding=2,
+                 num_physical_channels: int | None = None):
         super(FNO3dFullTrajectory, self).__init__(num_channels, 4, (modes1, modes2, modes3, modes4), width,
-                                                  initial_step, padding)
+                                                  initial_step, padding,
+                                                  num_physical_channels=num_physical_channels)

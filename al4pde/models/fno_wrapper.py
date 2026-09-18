@@ -480,6 +480,7 @@ def build_full_trajectory_model(task, cfg):
         _num_channels = task.num_channels
     if not task.sim.autonomous:
         _num_channels += 1
+    num_physical_channels = task.num_channels
     uncertainty_spec = build_uncertainty_spec(cfg.get("uncertainty", None))
     if uncertainty_spec is not None and task.spatial_dim != 1:
         raise NotImplementedError("Uncertainty specs are only currently valid for 1D problems.")
@@ -489,6 +490,7 @@ def build_full_trajectory_model(task, cfg):
                                     modes1=cfg.modes,
                                     modes2=cfg.time_modes,
                                     initial_step=task.initial_step,
+                                    num_physical_channels=num_physical_channels,
                                     uncertainty_spec=uncertainty_spec,
                                     padding=cfg.get("padding", 2)).to(device)
         print("MODEL: Building FNO1D full-trajectory")
@@ -499,7 +501,8 @@ def build_full_trajectory_model(task, cfg):
                                     modes2=cfg.modes,
                                     modes3=cfg.time_modes,
                                     initial_step=task.initial_step,
-                                    padding=cfg.get("padding", 2)).to(device)
+                                    padding=cfg.get("padding", 2),
+                                    num_physical_channels=num_physical_channels).to(device)
         print("MODEL: Building FNO2D full-trajectory")
     elif task.spatial_dim == 3:
         model = FNO3dFullTrajectory(num_channels=_num_channels,
@@ -509,7 +512,8 @@ def build_full_trajectory_model(task, cfg):
                                     modes3=cfg.modes,
                                     modes4=cfg.time_modes,
                                     initial_step=task.initial_step,
-                                    padding=cfg.get("padding", 2)).to(device)
+                                    padding=cfg.get("padding", 2),
+                                    num_physical_channels=num_physical_channels).to(device)
         print("MODEL: Building FNO3D full-trajectory")
     else:
         raise ValueError

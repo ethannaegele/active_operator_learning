@@ -336,9 +336,21 @@ class MeanUncInternalTest(unittest.TestCase):
                     },
                 },
                 {
-                    "name": "last",
+                    "name": "after_last_decoder",
                     "enabled": True,
                     "block_idx": 6,
+                    "head": {
+                        "in_channels": 1,
+                        "hidden_channels": 5,
+                        "out_channels": 3,
+                        "num_layers": 1,
+                        "make_channel_first_input": True,
+                    },
+                },
+                {
+                    "name": "last",
+                    "enabled": True,
+                    "block_idx": 7,
                     "head": {
                         "hidden_channels": 5,
                         "out_channels": 1,
@@ -349,15 +361,16 @@ class MeanUncInternalTest(unittest.TestCase):
             ],
         }))
         model = FNO1dFullTrajectory(
-            num_channels=1,
+            num_channels=2,
             modes1=2,
             modes2=2,
             width=4,
             initial_step=1,
             padding=2,
+            num_physical_channels=1,
             uncertainty_spec=spec,
         )
-        xx = torch.randn(2, 8, 5, 1)
+        xx = torch.randn(2, 8, 5, 2)
         grid_x = torch.linspace(0, 1, 8).reshape(1, 8, 1, 1).repeat(2, 1, 5, 1)
         grid_t = torch.linspace(0, 1, 5).reshape(1, 1, 5, 1).repeat(2, 8, 1, 1)
         grid = torch.cat((grid_x, grid_t), dim=-1)
@@ -366,9 +379,13 @@ class MeanUncInternalTest(unittest.TestCase):
         loss = mean.mean() + log_sigma.mean()
         loss.backward()
 
-        self.assertEqual(mean.shape, (2, 8, 5, 1))
+        self.assertEqual(mean.shape, (2, 8, 5, 2))
         self.assertEqual(log_sigma.shape, (2, 5, 1))
+        after_decoder_head = model.unc_heads["after_last_decoder"]
+        self.assertEqual(after_decoder_head.num_retained_channels, 1)
+        self.assertEqual(after_decoder_head.fcs.fc_layers[0].in_features, 1)
         self.assertIsNotNone(model.unc_heads["block1"].fcs.fc_layers[0].weight.grad)
+        self.assertIsNotNone(after_decoder_head.fcs.fc_layers[0].weight.grad)
         self.assertIsNotNone(model.unc_heads["last"].fc_layers[0].weight.grad)
 
     def test_uncertainty_expands_log_sigma_to_one_step_mean_shape(self):
