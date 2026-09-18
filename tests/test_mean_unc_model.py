@@ -802,6 +802,228 @@ class MeanUncertaintyModelTest(unittest.TestCase):
         self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
         self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
 
+    def test_build_prob_model_flexible_unc_applies_tap_config_and_disables_layers(self):
+        xx = torch.ones(2, 8, 2, 1)
+        yy = torch.ones(2, 8, 5, 1) * 2.0
+        grid = torch.linspace(0, 1, 8).reshape(1, 8, 1).repeat(2, 1, 1)
+        pde_param = torch.zeros(2, 1)
+        t_idx = torch.zeros(2)
+        train_loader = [(xx, yy, grid, pde_param, t_idx)]
+        mean_model = BuildableTrainableMeanModel(train_loader)
+        cfg = OmegaConf.create({
+            "_target_": "al4pde.prob_models.mean_unc_model.MeanUncModel",
+            "model_wrapper": {
+                "_target_": "unused.because.build_wrapper.is.mocked",
+                "training_type": "full_trajectory",
+                "t_train": 5,
+                "batch_size": 2,
+                "val_period": 999,
+                "vis_period": 999,
+                "noise": 0.0,
+                "noise_mode": "constant",
+                "block_grad": False,
+                "max_grad_norm": None,
+                "step_batch": -1,
+                "optimizer": {
+                    "_target_": "torch.optim.SGD",
+                    "lr": 0.1,
+                },
+                "scheduler": {
+                    "_target_": "torch.optim.lr_scheduler.StepLR",
+                    "step_size": 100,
+                    "gamma": 1.0,
+                },
+                "model": {},
+            },
+            "unc_model": {
+                "_target_": "al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1dFlexible",
+                "hidden_units": 4,
+                "distribution": "normal",
+                "if_conditional": True,
+                "traj_len": 5,
+                "activation": {
+                    "_target_": "torch.nn.ReLU",
+                },
+                "conv_taps": [
+                    {
+                        "name": "first",
+                        "enabled": True,
+                        "in_channels": 999,
+                        "out_channels": 5,
+                        "kernel_size": 5,
+                        "stride": 2,
+                        "padding": 2,
+                        "pool_type": "avg",
+                        "adaptive_pool": True,
+                        "adaptive_pool_output_size": 3,
+                        "activation": {
+                            "_target_": "torch.nn.GELU",
+                        },
+                    },
+                    {
+                        "name": "disabled_conv",
+                        "enabled": False,
+                        "in_channels": 5,
+                        "out_channels": 99,
+                        "kernel_size": 7,
+                        "adaptive_pool_output_size": 99,
+                    },
+                    {
+                        "name": "last",
+                        "enabled": True,
+                        "in_channels": 5,
+                        "out_channels": 7,
+                        "kernel_size": 1,
+                        "stride": 1,
+                        "padding": 0,
+                        "pool_type": "max",
+                        "adaptive_pool": True,
+                        "adaptive_pool_output_size": 4,
+                        "activation": {
+                            "_target_": "torch.nn.SiLU",
+                        },
+                    },
+                ],
+                "fc_taps": [
+                    {
+                        "name": "first",
+                        "enabled": True,
+                        "in_channels": 999,
+                        "out_channels": 11,
+                        "activation": {
+                            "_target_": "torch.nn.Tanh",
+                        },
+                    },
+                    {
+                        "name": "disabled_fc",
+                        "enabled": False,
+                        "in_channels": 11,
+                        "out_channels": 99,
+                    },
+                    {
+                        "name": "last",
+                        "enabled": True,
+                        "in_channels": 11,
+                        "out_channels": 999,
+                        "use_end_activation": True,
+                        "activation": {
+                            "_target_": "torch.nn.Sigmoid",
+                        },
+                    },
+                ],
+            },
+        })
+
+        with patch("al4pde.prob_models.mean_unc_model.build_wrapper", return_value=mean_model):
+            model = build_prob_model(DummyTask(), cfg)
+        model.init_training(al_iter=0)
+        unc_model = model.unc_model
+
+        self.assertEqual(len(unc_model.conv_heads_sequential), 6)
+        first_conv = unc_model.conv_heads_sequential[0]
+        self.assertEqual(first_conv.in_channels, 4)
+        self.assertEqual(first_conv.out_channels, 5)
+        self.assertEqual(first_conv.kernel_size, (5,))
+        self.assertEqual(first_conv.stride, (2,))
+        self.assertEqual(first_conv.padding, (2,))
+        self.assertIsInstance(unc_model.conv_heads_sequential[1], nn.GELU)
+        self.assertIsInstance(unc_model.conv_heads_sequential[2], nn.AdaptiveAvgPool1d)
+        self.assertEqual(unc_model.conv_heads_sequential[2].output_size, 3)
+
+        last_conv = unc_model.conv_heads_sequential[3]
+        self.assertEqual(last_conv.in_channels, 5)
+        self.assertEqual(last_conv.out_channels, 7)
+        self.assertEqual(last_conv.kernel_size, (1,))
+        self.assertEqual(last_conv.stride, (1,))
+        self.assertEqual(last_conv.padding, (0,))
+        self.assertIsInstance(unc_model.conv_heads_sequential[4], nn.SiLU)
+        self.assertIsInstance(unc_model.conv_heads_sequential[5], nn.AdaptiveMaxPool1d)
+        self.assertEqual(unc_model.conv_heads_sequential[5].output_size, 4)
+
+        self.assertEqual(unc_model.first_fc_input_channels, 28)
+        self.assertEqual(len(unc_model.fc_heads_sequential), 4)
+        first_fc = unc_model.fc_heads_sequential[0]
+        self.assertEqual(first_fc.in_features, 28)
+        self.assertEqual(first_fc.out_features, 11)
+        self.assertIsInstance(unc_model.fc_heads_sequential[1], nn.Tanh)
+        last_fc = unc_model.fc_heads_sequential[2]
+        self.assertEqual(last_fc.in_features, 11)
+        self.assertEqual(last_fc.out_features, 5)
+        self.assertIsInstance(unc_model.fc_heads_sequential[3], nn.Sigmoid)
+
+        mean_traj, unc_traj = model.unc_roll_out(xx, grid, final_step=5, pde_param=pde_param, t_idx=t_idx)
+        self.assertEqual(mean_traj.shape, (2, 8, 5, 1))
+        self.assertEqual(unc_traj.shape, (2, 8, 5, 1))
+
+    def test_build_prob_model_flexible_unc_uses_default_activation_when_tap_omits_it(self):
+        xx = torch.ones(2, 8, 2, 1)
+        yy = torch.ones(2, 8, 5, 1) * 2.0
+        grid = torch.linspace(0, 1, 8).reshape(1, 8, 1).repeat(2, 1, 1)
+        pde_param = torch.zeros(2, 1)
+        t_idx = torch.zeros(2)
+        train_loader = [(xx, yy, grid, pde_param, t_idx)]
+        mean_model = BuildableTrainableMeanModel(train_loader)
+        cfg = OmegaConf.create({
+            "_target_": "al4pde.prob_models.mean_unc_model.MeanUncModel",
+            "model_wrapper": {
+                "_target_": "unused.because.build_wrapper.is.mocked",
+                "training_type": "full_trajectory",
+                "t_train": 5,
+                "batch_size": 2,
+                "val_period": 999,
+                "vis_period": 999,
+                "noise": 0.0,
+                "noise_mode": "constant",
+                "block_grad": False,
+                "max_grad_norm": None,
+                "step_batch": -1,
+                "optimizer": {"_target_": "torch.optim.SGD", "lr": 0.1},
+                "scheduler": {
+                    "_target_": "torch.optim.lr_scheduler.StepLR",
+                    "step_size": 100,
+                    "gamma": 1.0,
+                },
+                "model": {"traj_len": 5},
+            },
+            "unc_model": {
+                "_target_": "al4pde.prob_models.unc_model.UncertaintyModelFullTrajectory1dFlexible",
+                "hidden_units": 4,
+                "distribution": "normal",
+                "if_conditional": True,
+                "activation": {
+                    "_target_": "torch.nn.LeakyReLU",
+                    "negative_slope": 0.2,
+                },
+                "conv_taps": [
+                    {
+                        "name": "last",
+                        "enabled": True,
+                        "in_channels": 999,
+                        "out_channels": 3,
+                        "adaptive_pool_output_size": 2,
+                    },
+                ],
+                "fc_taps": [
+                    {
+                        "name": "last",
+                        "enabled": True,
+                        "in_channels": 999,
+                        "out_channels": 999,
+                        "use_end_activation": True,
+                    },
+                ],
+            },
+        })
+
+        with patch("al4pde.prob_models.mean_unc_model.build_wrapper", return_value=mean_model):
+            model = build_prob_model(DummyTask(), cfg)
+        model.init_training(al_iter=0)
+
+        self.assertIsInstance(model.unc_model.conv_heads_sequential[1], nn.LeakyReLU)
+        self.assertEqual(model.unc_model.conv_heads_sequential[1].negative_slope, 0.2)
+        self.assertIsInstance(model.unc_model.fc_heads_sequential[1], nn.LeakyReLU)
+        self.assertEqual(model.unc_model.fc_heads_sequential[1].negative_slope, 0.2)
+
 
 if __name__ == "__main__":
     unittest.main()
