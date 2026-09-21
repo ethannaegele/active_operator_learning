@@ -360,7 +360,11 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             
 
     def _forward_mean_unc(self, xx, grid, traj_len, pde_param=None, t_idx=None, 
-                          return_features=False, return_uncertainty=False):
+                          return_features=False, return_uncertainty=False,
+                          return_predicted_loss=False,):
+        if return_uncertainty and return_predicted_loss:
+            raise ValueError("return_uncertainty=True and" \
+            "return_predicted_loss=True is not supported")
         if return_features and return_uncertainty:
             raise ValueError("""return_features=True and return_uncertainty=True
                 is not supported. Uncertainty-based active learning and
@@ -385,6 +389,8 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
         elif return_uncertainty:
             out, log_sigma = self.model(xx, grid, return_features=False,
                                         return_uncertainty=True)
+        elif return_predicted_loss:
+            out, predicted_loss = self.model(xx, grid, return_features=False, return_predicted_loss=True)
         else:
             out = self.model(xx, grid)
             feat = None
@@ -396,6 +402,8 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
             out = self.task_norm.denorm_traj(out)
         if return_features:
             return out, feat
+        if return_predicted_loss:
+            return out, predicted_loss
         if return_uncertainty:
             return out, log_sigma
         return out
@@ -422,6 +430,23 @@ class FNOFullTrajectoryWrapper(ModelWrapper):
                                       t_idx=t_idx, 
                                       return_features=False, 
                                       return_uncertainty=True)
+
+    def forward_predicted_loss(self, 
+                               xx, 
+                               grid,
+                               pde_param=None,
+                               t_idx=None,
+                               ):
+        return self._forward_mean_unc(xx,
+                                      grid,
+                                      self.traj_len,
+                                      pde_param=pde_param,
+                                      t_idx=t_idx,
+                                      return_features=False,
+                                      return_uncertainty=False,
+                                      return_predicted_loss=True
+                                      )
+
 
     def roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
         return self._forward_with_traj_len(xx, grid, final_step, pde_param, t_idx, return_features)
@@ -540,6 +565,8 @@ def build_uncertainty_spec(cfg):
                 num_layers=head.get("num_layers", 1),
                 make_channel_first_input=head.get("make_channel_first_input", False),
                 use_end_activation=head.get("use_end_activation", True),
+                average_over_space_and_time=head.get("average_over_space_and_time", False),
+                use_end_softplus=head.get("use_end_softplus", False),
                 detach=tap.get("detach", None),
             )
         )

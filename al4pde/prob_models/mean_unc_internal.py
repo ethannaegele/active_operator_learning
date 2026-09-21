@@ -37,13 +37,21 @@ class MeanUnc(ProbModel):
                  name,
                  if_conditional,
                  *args,
-                 **kwargs
+                 unc_model_prediction_mode: str = "unc", # unc or loss
+                 loss_prediction_raw: bool = False, # if True, loss for loss prediction module is e.g. MSE
+                 learning_loss_margin: float = 1.0,
+                 learning_loss_lambda: float = 1.0,
+                 **kwargs,
                  ):
         super().__init__(*args, **kwargs)
         self.model_wrapper = model_wrapper
         if isinstance(model_wrapper, ArenaWrapper):
             raise NotImplementedError("Internal MeanUnc behavior not yet " \
             "supported for PDEArena models.")
+        if isinstance(model_wrapper, (FNOWrapper, ArenaWrapper)) and unc_model_prediction_mode != "unc":
+            raise NotImplementedError("Learning loss behavior not yet supported for autoregressive models.")
+        if loss_prediction_raw:
+            raise NotImplementedError("Processing raw loss prediction loss is not yet supported. ")
         self.noise = noise
         self.noise_mode = noise_mode
         self.block_grad = block_grad
@@ -58,26 +66,52 @@ class MeanUnc(ProbModel):
         #self.first_iter_nb = self.mean_model.first_iter_nb
         self.name = name
         self.if_conditional = if_conditional
+        self.unc_model_prediction_mode = unc_model_prediction_mode
+        self.loss_prediction_raw = loss_prediction_raw
+        self.learning_loss_margin = learning_loss_margin
+        self.learning_loss_lambda = learning_loss_lambda
+        if self.unc_model_prediction_mode not in {"unc", "loss"}:
+            raise ValueError
         self.stats.append(UncAvg("unc"))
         self.stats.append(LossUncCorr("corr_unc_loss", self.loss))
 
 
     def uncertainty(self, xx, grid, pde_param=None, t_idx=None):
         "Output shape: [B, X, 1, C]"
-        mean, log_sigma = self.model_wrapper.forward_mean_unc(xx, 
-                                                   grid, 
-                                                   pde_param=pde_param,
-                                                   t_idx=t_idx)
-        spatial_ones = [1] * (mean.ndim - 3)
-        if getattr(self.model_wrapper, "predicts_full_trajectory", False):
-            B, T, C = log_sigma.shape
-            # expand log_sigma from shape [B, T, C] to shape of mean
-            log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, T, C).expand_as(mean)
-        else:
-            # expand log_sigma from shape [B, C] to shape of mean
-            B, C = log_sigma.shape
-            log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, 1, C).expand_as(mean)
-        return mean, log_sigma_expanded
+        if self.unc_model_prediction_mode == "unc":
+            mean, log_sigma = self.model_wrapper.forward_mean_unc(xx, 
+                                                    grid, 
+                                                    pde_param=pde_param,
+                                                    t_idx=t_idx)
+            spatial_ones = [1] * (mean.ndim - 3)
+            if getattr(self.model_wrapper, "predicts_full_trajectory", False):
+                B, T, C = log_sigma.shape
+                # expand log_sigma from shape [B, T, C] to shape of mean
+                log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, T, C).expand_as(mean)
+            else:
+                # expand log_sigma from shape [B, C] to shape of mean
+                B, C = log_sigma.shape
+                log_sigma_expanded = log_sigma.reshape(B, *spatial_ones, 1, C).expand_as(mean)
+            return mean, log_sigma_expanded
+        if self.unc_model_prediction_mode == "loss":
+            pred, predicted_loss = self.model_wrapper.forward_predicted_loss(xx,
+                                                                         grid,
+                                                                         pde_param=pde_param,
+                                                                         t_idx=t_idx
+                                                                         )
+            spatial_ones = [1] * (pred.ndim - 3)
+            predicted_loss = predicted_loss.squeeze(-1)
+            if predicted_loss.ndim != 1:
+                raise RuntimeError("Expected predicted_loss to have shape [B, 1]" \
+                f"([B] after squeezing). Got shape {predicted_loss.shape}")
+            B = predicted_loss.shape[0]
+            predicted_loss_expanded = predicted_loss.reshape(B, *spatial_ones, 1, 1).expand_as(pred)
+            return pred, predicted_loss_expanded
+            
+
+
+                
+            
         
     def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
         return self.model_wrapper(xx, grid, pde_param=pde_param, 
@@ -124,20 +158,58 @@ class MeanUnc(ProbModel):
         else:
             raise ValueError(self.training_type)
 
-    def unc_roll_out(self, xx, grid, final_step, pde_param=None, t_idx=None, return_features=False):
-        """Returns prediction and sigma, rather than log sigma. Used because
-        acquisition requires nonnegative uncertainties.
+    def unc_roll_out_predicted_loss(self,
+                                    xx, 
+                                    grid, 
+                                    final_step, 
+                                    pde_param=None, 
+                                    t_idx=None,
+                                    ):
+        pred, predicted_loss = self.model_wrapper.forward_predicted_loss(xx,
+                                                                         grid,
+                                                                         pde_param=pde_param,
+                                                                         t_idx=t_idx
+                                                                         )
+        predicted_loss = predicted_loss.squeeze(-1)
+        if predicted_loss.ndim != 1:
+            raise RuntimeError("Expected predicted_loss to have shape [B, 1]" \
+            f"([B] after squeezing). Got shape {predicted_loss.shape}")
+        # return predicted_loss with shape [B]
+        return pred[..., 0:final_step, :], predicted_loss
+    def unc_roll_out(self, xx, grid, final_step, pde_param=None, 
+                     t_idx=None, return_features=False):
+        """Returns prediction and sigma, or prediction and predicted loss, 
+        rather than log sigma. Used because acquisition requires nonnegative 
+        uncertainties.
         """
-        pred, log_sigma = self.unc_roll_out_log_sigma(xx, 
-                                                      grid, 
-                                                      final_step, 
-                                                      pde_param=pde_param, 
-                                                      t_idx=t_idx, 
-                                                      return_features=return_features)
-        sigma = torch.exp(log_sigma)
-        sigma[..., 0:self.initial_step, :] = 0.0
-        return pred, sigma
-
+        if self.unc_model_prediction_mode == "unc":
+            pred, log_sigma = self.unc_roll_out_log_sigma(xx, 
+                                                        grid, 
+                                                        final_step, 
+                                                        pde_param=pde_param, 
+                                                        t_idx=t_idx, 
+                                                        return_features=return_features)
+            sigma = torch.exp(log_sigma)
+            sigma[..., 0:self.initial_step, :] = 0.0
+            return pred, sigma
+        elif self.unc_model_prediction_mode == "loss":
+            pred, predicted_loss = self.unc_roll_out_predicted_loss(xx,
+                                                                    grid,
+                                                                    final_step,
+                                                                    pde_param=pde_param,
+                                                                    t_idx=t_idx,
+                                                                    )
+            spatial_ones = [1] * (pred.ndim - 3)
+            
+            if getattr(self.model_wrapper, "predicts_full_trajectory", False):
+                B = predicted_loss.shape[0]
+                # expanded version so that it's compatible with the expected form at acquisition time
+                predicted_loss_expanded = predicted_loss.reshape(B, *spatial_ones, 1, 1).expand_as(pred)
+            else:
+                predicted_loss_expanded = predicted_loss
+            return pred, predicted_loss_expanded
+        else:
+            raise ValueError("self.unc_model_prediction_mode is not recognized")
         
 
     def roll_out(self, xx, grid, final_step, 
@@ -245,6 +317,58 @@ class MeanUnc(ProbModel):
             raise ValueError("Only mean reduction is currently supported for gaussian_nll")
         return loss
 
+    def _indicator(self, l_i: Tensor, l_j: Tensor) -> int:
+        """l_i shape: []
+        l_j shape: []
+        """
+        x = 1 if l_i > l_j else -1
+        return x
+
+    def learning_loss_module_loss_single_pair(self,
+                                              predicted_loss: tuple[Tensor, Tensor],
+                                              actual_loss: tuple[Tensor, Tensor],
+                                              #initial_step: Tensor,
+                                              margin: float = 0.01) -> Tensor:
+        """Shape of tensors in predicted_loss and actual_loss: [] """
+        loss = torch.relu( 
+                   -1.0 * self._indicator(actual_loss[0], actual_loss[1]) * 
+                   (predicted_loss[0] - predicted_loss[1]) + margin)
+        return loss
+
+    def learning_loss_module_loss(self, 
+                                  pred: Tensor,
+                                  yy: Tensor, 
+                                  predicted_loss: Tensor, # shape probably [B]
+                                  initial_step: Tensor,
+                                  lam: float = 1.0, # lambda
+                                  margin: float = 1.0,
+                                  loss_prediction_raw: bool = False,
+                                  ) -> Tensor:
+        if loss_prediction_raw:
+            raise NotImplementedError
+        B = yy.shape[0]
+        permuted_indices = torch.randperm(B)
+        num_pairs = B // 2
+        # only consider B / 2 pairs for comparison to save time, as in Learning Loss paper
+        loss_module_loss = 0
+        actual_loss = self.model_wrapper.loss(pred,
+                                            yy,
+                                            reduction="mean_traj",
+                                            initial_step=initial_step) # [B]
+        if B > 1:
+            for i, j in zip(permuted_indices[0: B // 2], permuted_indices[B // 2:]):
+                # if B is odd, zip drops the unpaired element, creating B // 2 pairs
+                # from zip docstring: "continues until the shortest argument is exhausted"
+                loss_module_loss += self.learning_loss_module_loss_single_pair((predicted_loss[i], predicted_loss[j]),
+                                                        (actual_loss[i], actual_loss[j]),
+                                                        margin=margin)
+            loss = actual_loss.mean() + lam * (1 / num_pairs) * loss_module_loss
+        else:
+            loss = actual_loss.mean()
+
+        return loss
+
+        
     def init_training(self, al_iter, load_train_data=True, 
                       warm_start_model_state: OrderedDict | None = None,
                       ):
@@ -280,6 +404,7 @@ class MeanUnc(ProbModel):
         norm_n = 0
         profile_batches = 0 # adjust for profiling
         log_sigma_reduced_all = []
+        predicted_loss_all = []
 
         if self.noise_mode == "channel_std_rel" and self.task_norm is not None:
             std = self.noise * self.task_norm.std_channels
@@ -358,12 +483,21 @@ class MeanUnc(ProbModel):
             elif self.training_type == 'full_trajectory':
                 xx = xx + torch.normal(torch.zeros_like(xx), std)
                 t0 = sync_time(do_profile)
-                pred, log_sigma = self.unc_roll_out_log_sigma(xx, 
-                                                        grid, 
-                                                        yy.shape[-2],
-                                                        pde_param=pde_param,
-                                                        t_idx=t_idx,
-                                                        return_features=False)
+                if self.unc_model_prediction_mode == "unc":
+                    pred, log_sigma = self.unc_roll_out_log_sigma(xx, 
+                                                            grid, 
+                                                            yy.shape[-2],
+                                                            pde_param=pde_param,
+                                                            t_idx=t_idx,
+                                                            return_features=False)
+                if self.unc_model_prediction_mode == "loss":
+                    pred, predicted_loss = self.unc_roll_out_predicted_loss(xx,
+                                                                            grid,
+                                                                            yy.shape[-2],
+                                                                            pde_param=pde_param,
+                                                                            t_idx=t_idx,
+                                                                            )
+                    
                 t1 = sync_time(do_profile)
                 if do_profile:
                     print(f"profile batch {batch_idx}: forward_unc = {t1 - t0:.4f} s")
@@ -371,10 +505,15 @@ class MeanUnc(ProbModel):
             else:
                 raise ValueError(self.training_type)
             if current_epoch % self.val_period == 0:
-                spatial_zeros = (0,) * (log_sigma.ndim - 3)
-                reduced_index = (slice(None),) + spatial_zeros + (slice(self.initial_step, None), slice(None))
-                log_sigma_reduced = log_sigma[reduced_index].detach().cpu() # [B, spatial, T, C] -> [B, T - initial steps, C]
-                log_sigma_reduced_all.append(log_sigma_reduced)
+                if self.unc_model_prediction_mode == "unc":
+                    spatial_zeros = (0,) * (log_sigma.ndim - 3)
+                    reduced_index = (slice(None),) + spatial_zeros + (slice(self.initial_step, None), slice(None))
+                    log_sigma_reduced = log_sigma[reduced_index].detach().cpu() # [B, spatial, T, C] -> [B, T - initial steps, C]
+                    log_sigma_reduced_all.append(log_sigma_reduced)
+                if self.unc_model_prediction_mode == "loss":
+                    predicted_loss = predicted_loss.detach().cpu()
+                    predicted_loss_all.append(predicted_loss)
+
 
             # currently, prediction is denormalized, log_sigma is normalized.
             # So, renormalize to put them on the same scale
@@ -386,7 +525,15 @@ class MeanUnc(ProbModel):
                 yy_norm = yy
 
             t0 = sync_time(do_profile)
-            loss = self.gaussian_nll(pred_norm, yy_norm, log_sigma, self.initial_step, reduction='mean')
+            if self.unc_model_prediction_mode == "unc":
+                loss = self.gaussian_nll(pred_norm, yy_norm, log_sigma, self.initial_step, reduction='mean')
+            if self.unc_model_prediction_mode == "loss":
+                loss = self.learning_loss_module_loss(pred, 
+                                                      yy, 
+                                                      predicted_loss, 
+                                                      self.initial_step, 
+                                                      lam=self.learning_loss_lambda, 
+                                                      margin=self.learning_loss_margin)
             t1 = sync_time(do_profile)
             if do_profile:
                 print(f"profile batch {batch_idx}: loss = {t1 - t0:.4f} s")
@@ -453,18 +600,24 @@ class MeanUnc(ProbModel):
             #batch_idx += 1
 
         if current_epoch % self.val_period == 0:
-            log_sigma_reduced_all_tensor = torch.cat(log_sigma_reduced_all, dim=0).detach().cpu()
-            log_sigma_reduced_all_tensor = log_sigma_reduced_all_tensor.flatten(0, -1) # [N, T, C] -> [N * T * C]
-            all_uncs = torch.exp(log_sigma_reduced_all_tensor).detach().cpu().numpy()
-            mean_unc = np.mean(all_uncs)
-            quantiles_unc = np.quantile(all_uncs, [0, .01, .05, .5, .95, .99, 1])
-            min_unc = quantiles_unc[0]
-            quantile_1_unc = quantiles_unc[1]
-            quantile_5_unc = quantiles_unc[2]
-            median_unc = quantiles_unc[3]
-            quantile_95_unc = quantiles_unc[4]
-            quantile_99_unc = quantiles_unc[5]
-            max_unc = quantiles_unc[-1] 
+            if self.unc_model_prediction_mode == "unc":
+                log_sigma_reduced_all_tensor = torch.cat(log_sigma_reduced_all, dim=0).detach().cpu()
+                log_sigma_reduced_all_tensor = log_sigma_reduced_all_tensor.flatten(0, -1) # [N, T, C] -> [N * T * C]
+                all_unc_model_preds = torch.exp(log_sigma_reduced_all_tensor).detach().cpu().numpy()
+            if self.unc_model_prediction_mode == "loss":
+                predicted_loss_all_tensor = torch.cat(predicted_loss_all, dim=0).detach().cpu()
+                all_unc_model_preds = predicted_loss_all_tensor.flatten(0, -1)
+                all_unc_model_preds = all_unc_model_preds.detach().cpu().numpy()
+
+            mean_unc_model_pred = np.mean(all_unc_model_preds)
+            quantiles_unc_model_pred = np.quantile(all_unc_model_preds, [0, .01, .05, .5, .95, .99, 1])
+            min_unc_model_pred = quantiles_unc_model_pred[0]
+            quantile_1_unc_model_pred = quantiles_unc_model_pred[1]
+            quantile_5_unc_model_pred = quantiles_unc_model_pred[2]
+            median_unc_model_pred = quantiles_unc_model_pred[3]
+            quantile_95_unc_model_pred = quantiles_unc_model_pred[4]
+            quantile_99_unc_model_pred = quantiles_unc_model_pred[5]
+            max_unc_model_pred = quantiles_unc_model_pred[-1] 
 
 
         train_rmse = torch.sqrt(train_mse_sum / n).item()
@@ -480,7 +633,30 @@ class MeanUnc(ProbModel):
               "grad_norm", np.round(norm_sum/ norm_n, 4), "max_grad_norm", self.max_grad_norm)
 
         if current_epoch % self.val_period == 0:
-            wandb.log({
+            if self.unc_model_prediction_mode == "unc":
+                unc_model_pred_log = {
+                    self.name + "/train_unc_mean": mean_unc_model_pred,
+                    self.name + "/train_unc_min": min_unc_model_pred,
+                    self.name + "/train_unc_quantile_1": quantile_1_unc_model_pred,
+                    self.name + "/train_unc_quantile_5": quantile_5_unc_model_pred,
+                    self.name + "/train_unc_median": median_unc_model_pred,
+                    self.name + "/train_unc_quantile_95": quantile_95_unc_model_pred,
+                    self.name + "/train_unc_quantile_99": quantile_99_unc_model_pred,
+                    self.name + "/train_unc_max": max_unc_model_pred
+                                }
+            if self.unc_model_prediction_mode == "loss":
+                unc_model_pred_log = {
+                    self.name + "/train_loss_pred_mean": mean_unc_model_pred,
+                    self.name + "/train_loss_pred_min": min_unc_model_pred,
+                    self.name + "/train_loss_pred_quantile_1": quantile_1_unc_model_pred,
+                    self.name + "/train_loss_pred_quantile_5": quantile_5_unc_model_pred,
+                    self.name + "/train_loss_pred_median": median_unc_model_pred,
+                    self.name + "/train_loss_pred_quantile_95": quantile_95_unc_model_pred,
+                    self.name + "/train_loss_pred_quantile_99": quantile_99_unc_model_pred,
+                    self.name + "/train_loss_pred_max": max_unc_model_pred
+                                }
+
+            stats_log = {
                 self.name + "/train_rmse": train_rmse,
                 self.name + "/train_avg_loss": train_avg_loss,
                 self.name + "/train_max_l2": train_max_l2,
@@ -491,17 +667,10 @@ class MeanUnc(ProbModel):
                 self.name + "/norm_cap_rate": np.round(self.norm_max_counter / (self.val_period * len(self.train_loader)), 4),
                 self.name + "/norm_max": self.max_norm_stat,
                 self.name + "/avg_grad": avg_grad,
-                "total_epoch": total_epoch,
-                self.name + "/train_unc_mean": mean_unc,
-                self.name + "/train_unc_min": min_unc,
-                self.name + "/train_unc_quantile_1": quantile_1_unc,
-                self.name + "/train_unc_quantile_5": quantile_5_unc,
-                self.name + "/train_unc_median": median_unc,
-                self.name + "/train_unc_quantile_95": quantile_95_unc,
-                self.name + "/train_unc_quantile_99": quantile_99_unc,
-                self.name + "/train_unc_max": max_unc
-            },
-            )
+                "total_epoch": total_epoch}
+            stats_log.update(unc_model_pred_log)
+
+            wandb.log(stats_log)
             self.norm_max_counter = 0
             self.max_norm_stat = 0
         
@@ -568,6 +737,10 @@ def build_mean_unc(task, cfg):
                         val_period = cfg.model_wrapper.val_period,
                         vis_period = cfg.model_wrapper.vis_period,
                         loss = model_wrapper.loss,
+                        unc_model_prediction_mode=cfg.get("unc_model_prediction_mode", "unc"),
+                        loss_prediction_raw=cfg.get("loss_prediction_raw", False),
+                        learning_loss_margin=cfg.get("learning_loss_margin", 1.0),
+                        learning_loss_lambda=cfg.get("learning_loss_lambda", 1.0),
                     )
 
 

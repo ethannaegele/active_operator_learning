@@ -2,3 +2,8 @@ _target_: al4pde.prob_models.mean_unc_internal.MeanUnc
 
 defaults:
   - model_wrapper: fno_full_traj_mean_unc_internal
+
+unc_model_prediction_mode: "unc"
+loss_prediction_raw: false
+learning_loss_margin: 1.0
+learning_loss_lambda: 1.0

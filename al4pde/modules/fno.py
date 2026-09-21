@@ -45,6 +45,8 @@ class UncertaintyTapSpec:
     num_layers: int = 1
     make_channel_first_input: bool = False
     use_end_activation: bool = True
+    average_over_space_and_time: bool = False
+    use_end_softplus: bool = False
     detach: bool | None = None
 
 
@@ -628,7 +630,7 @@ class FNOFullTrajectory(nn.Module):
                         hidden_channels=tap.hidden_channels,
                         make_channel_first_input=tap.make_channel_first_input,
                         use_end_activation=tap.use_end_activation,
-                        time_as_second_dim=True, # can potentially be a config option later
+                        average_over_space_and_time=tap.average_over_space_and_time,
                         num_retained_channels=num_retained_channels,
                         )
                     
@@ -638,7 +640,8 @@ class FNOFullTrajectory(nn.Module):
                                             out_channels=tap.out_channels,
                                             num_layers=tap.num_layers,
                                             hidden_channels=tap.hidden_channels,
-                                            use_end_activation=tap.use_end_activation # should generally be False
+                                            use_end_activation=tap.use_end_activation, # should generally be False
+                                            use_end_softplus=tap.use_end_softplus
                                         )
                 self.unc_taps_by_block.setdefault(tap.block_idx, []).append(tap)
 
@@ -656,7 +659,7 @@ class FNOFullTrajectory(nn.Module):
             out = self.unc_heads[tap.name](x_unc)
             unc_outputs.append(out)
 
-    def _aggregate_unc_outputs(self, unc_outputs, block_idx):
+    def _aggregate_unc_outputs(self, unc_outputs, block_idx, return_predicted_loss=False):
         if len(unc_outputs) == 0:
             raise RuntimeError("return_uncertainty=True but no uncertainty taps" \
             " are enabled")
@@ -669,20 +672,21 @@ class FNOFullTrajectory(nn.Module):
         detach = self.uncertainty_spec.detach_features if last_tap.detach is None else last_tap.detach
         stacked_unc = stacked.detach() if detach else stacked
 
-        log_sigma = self.unc_heads[last_tap.name](stacked_unc)
+        unc_model_pred = self.unc_heads[last_tap.name](stacked_unc)
 
-        if self.uncertainty_spec.clamp_log_sigma:
+        # if unc_model_pred represents log_sigma; otherwise ignore clamping
+        if not return_predicted_loss and self.uncertainty_spec.clamp_log_sigma:
             if self.uncertainty_spec.min_log_sigma is None and self.uncertainty_spec.max_log_sigma is None:
                 raise ValueError("Invalid uncertainty spec. " \
                 "Tried to clamp log sigma with both min_log_sigma " \
                 "and max_log_sigma = None")
-            log_sigma = torch.clamp(
-                log_sigma,
+            unc_model_pred = torch.clamp(
+                unc_model_pred,
                 min=self.uncertainty_spec.min_log_sigma,
                 max=self.uncertainty_spec.max_log_sigma,
             )
 
-        return log_sigma
+        return unc_model_pred
 
     def _linear_channel_first(self, layer, x):
         permute_to_last = [0] + list(range(2, x.dim())) + [1]
@@ -700,7 +704,11 @@ class FNOFullTrajectory(nn.Module):
         slices = [slice(None), slice(None)] + [slice(None, -self.padding)] * self.n_dims
         return x[tuple(slices)]
 
-    def forward(self, x, grid, return_features=False, return_uncertainty=False):
+    def forward(self, x, grid, return_features=False, 
+                return_uncertainty=False, return_predicted_loss=False):
+        if return_uncertainty and return_predicted_loss:
+            raise ValueError("return_uncertainty=True and" \
+            "return_predicted_loss=True is not supported")
         # x is [batch, spatial..., time, initial_step * channels].
         # grid is [batch, spatial..., time, spatial_dim + time].
         #print("input shape: ", x.shape)
@@ -737,6 +745,11 @@ class FNOFullTrajectory(nn.Module):
         if return_uncertainty:
             log_sigma = self._aggregate_unc_outputs(unc_outputs, block_idx=7)
             return x, log_sigma
+        if return_predicted_loss:
+            predicted_loss = self._aggregate_unc_outputs(unc_outputs, 
+                                                         block_idx=7,
+                                                         return_predicted_loss=return_predicted_loss) # ignore clamping
+            return x, predicted_loss
         if return_features:
             return x, features[-1]
         return x

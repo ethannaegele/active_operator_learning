@@ -133,10 +133,16 @@ class TinyFullTrajectoryMeanUncModule(nn.Module):
         super().__init__()
         self.mean_weight = nn.Parameter(torch.tensor(0.25))
         self.log_sigma = nn.Parameter(torch.zeros(1, traj_len, 1))
+        self.predicted_loss_weight = nn.Parameter(torch.tensor(0.1))
 
     def forward(self, xx, traj_len):
         base = xx[..., :1, :]
         return self.mean_weight * base.repeat(*([1] * (xx.dim() - 2) + [traj_len, 1]))
+
+    def forward_predicted_loss(self, xx):
+        # Give the two test observations distinct scores so the ranking term has
+        # a nonzero gradient with respect to this parameter.
+        return self.predicted_loss_weight * xx[..., 0, 0].mean(dim=1, keepdim=True)
 
 
 class DummyFullTrajectoryInternalWrapper(nn.Module):
@@ -170,6 +176,9 @@ class DummyFullTrajectoryInternalWrapper(nn.Module):
         log_sigma = self.model.log_sigma.expand(xx.shape[0], -1, -1)
         return mean, log_sigma
 
+    def forward_predicted_loss(self, xx, grid, pde_param=None, t_idx=None):
+        return self.model(xx, self.traj_len), self.model.forward_predicted_loss(xx)
+
     def forward(self, xx, grid, pde_param=None, t_idx=None, return_features=False):
         return self.model(xx, self.traj_len)
 
@@ -183,7 +192,7 @@ class DummyFullTrajectoryInternalWrapper(nn.Module):
         return xx, grid
 
 
-def make_mean_unc(wrapper, training_type="autoregressive"):
+def make_mean_unc(wrapper, training_type="autoregressive", **kwargs):
     return MeanUnc(
         wrapper,
         noise=0.0,
@@ -202,6 +211,7 @@ def make_mean_unc(wrapper, training_type="autoregressive"):
         val_period=999,
         vis_period=999,
         loss=DummyLoss(),
+        **kwargs,
     )
 
 
@@ -388,6 +398,66 @@ class MeanUncInternalTest(unittest.TestCase):
         self.assertIsNotNone(after_decoder_head.fcs.fc_layers[0].weight.grad)
         self.assertIsNotNone(model.unc_heads["last"].fc_layers[0].weight.grad)
 
+    def test_full_trajectory_fno_predicted_loss_bypasses_log_sigma_clamp(self):
+        spec = build_uncertainty_spec(OmegaConf.create({
+            "enabled": True,
+            "clamp_log_sigma": True,
+            "min_log_sigma": -3.0,
+            "max_log_sigma": 2.0,
+            "taps": [
+                {
+                    "name": "block1",
+                    "enabled": True,
+                    "block_idx": 1,
+                    "head": {
+                        "in_channels": 4,
+                        "hidden_channels": 5,
+                        "out_channels": 3,
+                        "average_over_space_and_time": True,
+                    },
+                },
+                {
+                    "name": "last",
+                    "enabled": True,
+                    "block_idx": 7,
+                    "head": {
+                        "hidden_channels": 5,
+                        "out_channels": 1,
+                        "use_end_activation": False,
+                    },
+                },
+            ],
+        }))
+        model = FNO1dFullTrajectory(
+            num_channels=1,
+            modes1=2,
+            modes2=2,
+            width=4,
+            initial_step=1,
+            padding=1,
+            num_physical_channels=1,
+            uncertainty_spec=spec,
+        )
+        last_layer = model.unc_heads["last"].fc_layers[0]
+        with torch.no_grad():
+            last_layer.weight.zero_()
+            last_layer.bias.fill_(10.0)
+
+        xx = torch.randn(2, 8, 3, 1)
+        grid_x = torch.linspace(0, 1, 8).reshape(1, 8, 1, 1).repeat(2, 1, 3, 1)
+        grid_t = torch.linspace(0, 1, 3).reshape(1, 1, 3, 1).repeat(2, 8, 1, 1)
+        grid = torch.cat((grid_x, grid_t), dim=-1)
+
+        pred, log_sigma = model(xx, grid, return_uncertainty=True)
+        pred_for_loss, predicted_loss = model(xx, grid, return_predicted_loss=True)
+
+        self.assertEqual(pred.shape, (2, 8, 3, 1))
+        self.assertTrue(torch.equal(pred, pred_for_loss))
+        self.assertEqual(log_sigma.shape, (2, 1))
+        self.assertEqual(predicted_loss.shape, (2, 1))
+        self.assertTrue(torch.allclose(log_sigma, torch.full_like(log_sigma, 2.0)))
+        self.assertTrue(torch.allclose(predicted_loss, torch.full_like(predicted_loss, 10.0)))
+
     def test_uncertainty_expands_log_sigma_to_one_step_mean_shape(self):
         wrapper = DummyInternalWrapper()
         model = make_mean_unc(wrapper)
@@ -441,6 +511,39 @@ class MeanUncInternalTest(unittest.TestCase):
         self.assertEqual(unc.shape, pred.shape)
         self.assertTrue(torch.equal(unc[..., :1, :], torch.zeros_like(unc[..., :1, :])))
         self.assertTrue(torch.allclose(unc[..., 1:, :], torch.full_like(unc[..., 1:, :], 2.0)))
+
+    def test_loss_mode_returns_broadcast_scores_and_updates_loss_head(self):
+        xx = torch.stack((torch.ones(4, 1, 1), torch.full((4, 1, 1), 2.0)))
+        yy = torch.stack((torch.full((4, 3, 1), 2.0), torch.full((4, 3, 1), 4.0)))
+        grid = torch.zeros(2, 4, 1)
+        pde_param = torch.zeros(2, 1)
+        t_idx = torch.zeros(2)
+        train_loader = [(xx, yy, grid, pde_param, t_idx)]
+        wrapper = DummyFullTrajectoryInternalWrapper(train_loader, traj_len=3)
+        model = make_mean_unc(
+            wrapper,
+            training_type="full_trajectory",
+            unc_model_prediction_mode="loss",
+            learning_loss_margin=1.0,
+            learning_loss_lambda=1.0,
+        )
+        model.init_training(al_iter=0)
+
+        pred, loss_score = model.unc_roll_out(xx, grid, final_step=3, pde_param=pde_param, t_idx=t_idx)
+        self.assertEqual(pred.shape, yy.shape)
+        self.assertEqual(loss_score.shape, yy.shape)
+        self.assertTrue(torch.all(loss_score[0] == loss_score[0, 0, 0, 0]))
+        self.assertTrue(torch.all(loss_score[1] == loss_score[1, 0, 0, 0]))
+        self.assertNotEqual(loss_score[0, 0, 0, 0].item(), loss_score[1, 0, 0, 0].item())
+
+        mean_before = wrapper.model.mean_weight.detach().clone()
+        loss_head_before = wrapper.model.predicted_loss_weight.detach().clone()
+        model.train_single_epoch(current_epoch=1, total_epoch=1, num_epoch=2)
+
+        self.assertIsNotNone(wrapper.model.mean_weight.grad)
+        self.assertIsNotNone(wrapper.model.predicted_loss_weight.grad)
+        self.assertFalse(torch.equal(wrapper.model.mean_weight.detach(), mean_before))
+        self.assertFalse(torch.equal(wrapper.model.predicted_loss_weight.detach(), loss_head_before))
 
     def test_training_step_updates_mean_and_uncertainty_head_parameters(self):
         xx = torch.ones(2, 4, 1, 1)
