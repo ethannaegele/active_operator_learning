@@ -90,7 +90,7 @@ model:
           use_end_activation: true
           #activation: gelu
       - name: after_last_decoder # after second decoding layer
-        enabled: true
+        enabled: false
         block_idx: 6
         head:
           in_channels: ${prob_model.model_wrapper.model.num_channels} # this cannot be changed
