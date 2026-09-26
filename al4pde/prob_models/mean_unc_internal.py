@@ -41,6 +41,7 @@ class MeanUnc(ProbModel):
                  loss_prediction_raw: bool = False, # if True, loss for loss prediction module is e.g. MSE
                  learning_loss_margin: float = 1.0,
                  learning_loss_lambda: float = 1.0,
+                 detach_unc_features_after_epoch: int | None = None, # e.g. 200, detach unc_model features after epoch 200
                  **kwargs,
                  ):
         super().__init__(*args, **kwargs)
@@ -70,6 +71,7 @@ class MeanUnc(ProbModel):
         self.loss_prediction_raw = loss_prediction_raw
         self.learning_loss_margin = learning_loss_margin
         self.learning_loss_lambda = learning_loss_lambda
+        self.detach_unc_features_after_epoch = detach_unc_features_after_epoch
         if self.unc_model_prediction_mode not in {"unc", "loss"}:
             raise ValueError
         self.stats.append(UncAvg("unc"))
@@ -388,6 +390,20 @@ class MeanUnc(ProbModel):
         # print("len train loader:", len(self.train_loader))
         # print("batch size:", self.batch_size)
         # print("train folders:", self.task.train_data_folders)
+        if self.detach_unc_features_after_epoch is None:
+            detach_now = None
+        else:
+            detach_now = (current_epoch >= self.detach_unc_features_after_epoch)
+        try:
+            self.model_wrapper.model.set_unc_features_detached(detach_now) 
+        except AttributeError:
+            if self.detach_unc_features_after_epoch is None:
+                pass
+            else:
+                raise NotImplementedError("Tried to set detach schedule for a" \
+                "module that has not implemented a 'set_unc_features_detached" \
+                "method.")
+
         t1_epoch = default_timer()
 
         self.model_wrapper.train()
@@ -741,6 +757,7 @@ def build_mean_unc(task, cfg):
                         loss_prediction_raw=cfg.get("loss_prediction_raw", False),
                         learning_loss_margin=cfg.get("learning_loss_margin", 1.0),
                         learning_loss_lambda=cfg.get("learning_loss_lambda", 1.0),
+                        detach_unc_features_after_epoch=cfg.get("detach_unc_features_after_epoch", None),
                     )
 
 

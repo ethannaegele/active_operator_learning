@@ -7,3 +7,4 @@ unc_model_prediction_mode: "loss"
 loss_prediction_raw: false
 learning_loss_margin: 1.0
 learning_loss_lambda: 1.0
+detach_unc_features_after_epoch: null

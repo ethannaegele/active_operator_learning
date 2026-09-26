@@ -613,6 +613,7 @@ class FNOFullTrajectory(nn.Module):
         self.unc_heads = nn.ModuleDict()
         self.unc_taps_by_block = {}
         num_out_channels_sum = 0
+        self.detach_unc_features_runtime = None
         if self.uncertainty_enabled:
             for tap in uncertainty_spec.taps:
                 if tap.name != "last":
@@ -651,7 +652,12 @@ class FNOFullTrajectory(nn.Module):
 
         taps = self.unc_taps_by_block.get(block_idx, [])
         for tap in taps:
-            detach = self.uncertainty_spec.detach_features if tap.detach is None else tap.detach
+            # runtime scheduled detach overrides old behavior if it is set
+            if self.detach_unc_features_runtime is not None:
+                detach = self.detach_unc_features_runtime
+            # otherwise, resort to old behavior
+            else:
+                detach = self.uncertainty_spec.detach_features if tap.detach is None else tap.detach
             x_unc = x.detach() if detach else x
             if block_idx < 5: # input to block 5 is already unpadded
                 x_unc = self._unpad(x_unc)
@@ -669,10 +675,8 @@ class FNOFullTrajectory(nn.Module):
         if len(last_tap) != 1:
             raise RuntimeError("Exactly one final uncertainty tap is required")
         last_tap = last_tap[0]
-        detach = self.uncertainty_spec.detach_features if last_tap.detach is None else last_tap.detach
-        stacked_unc = stacked.detach() if detach else stacked
 
-        unc_model_pred = self.unc_heads[last_tap.name](stacked_unc)
+        unc_model_pred = self.unc_heads[last_tap.name](stacked)
 
         # if unc_model_pred represents log_sigma; otherwise ignore clamping
         if not return_predicted_loss and self.uncertainty_spec.clamp_log_sigma:
@@ -703,6 +707,9 @@ class FNOFullTrajectory(nn.Module):
             return x
         slices = [slice(None), slice(None)] + [slice(None, -self.padding)] * self.n_dims
         return x[tuple(slices)]
+
+    def set_unc_features_detached(self, detach_now: bool | None) -> None:
+        self.detach_unc_features_runtime = detach_now
 
     def forward(self, x, grid, return_features=False, 
                 return_uncertainty=False, return_predicted_loss=False):

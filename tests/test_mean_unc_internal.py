@@ -216,6 +216,96 @@ def make_mean_unc(wrapper, training_type="autoregressive", **kwargs):
 
 
 class MeanUncInternalTest(unittest.TestCase):
+    @staticmethod
+    def _make_loss_prediction_fno(static_detach):
+        spec = build_uncertainty_spec(OmegaConf.create({
+            "enabled": True,
+            "detach_features": static_detach,
+            "taps": [
+                {
+                    "name": "block1",
+                    "enabled": True,
+                    "block_idx": 1,
+                    "head": {
+                        "in_channels": 4,
+                        "hidden_channels": 5,
+                        "out_channels": 3,
+                        "average_over_space_and_time": True,
+                    },
+                },
+                {
+                    "name": "last",
+                    "enabled": True,
+                    "block_idx": 7,
+                    "head": {
+                        "hidden_channels": 5,
+                        "out_channels": 1,
+                        "use_end_activation": False,
+                    },
+                },
+            ],
+        }))
+        model = FNO1dFullTrajectory(
+            num_channels=1,
+            modes1=2,
+            modes2=2,
+            width=4,
+            initial_step=1,
+            padding=1,
+            num_physical_channels=1,
+            uncertainty_spec=spec,
+        )
+        xx = torch.randn(2, 8, 3, 1)
+        grid_x = torch.linspace(0, 1, 8).reshape(1, 8, 1, 1).repeat(2, 1, 3, 1)
+        grid_t = torch.linspace(0, 1, 3).reshape(1, 1, 3, 1).repeat(2, 8, 1, 1)
+        return model, xx, torch.cat((grid_x, grid_t), dim=-1)
+
+    def test_runtime_detach_none_uses_static_feature_detach_setting(self):
+        model, xx, grid = self._make_loss_prediction_fno(static_detach=True)
+
+        _, predicted_loss = model(xx, grid, return_predicted_loss=True)
+        predicted_loss.sum().backward()
+
+        self.assertIsNone(model.fc0.weight.grad)
+        self.assertIsNotNone(model.unc_heads["block1"].fcs.fc_layers[0].weight.grad)
+        self.assertIsNotNone(model.unc_heads["last"].fc_layers[0].weight.grad)
+
+        model.zero_grad(set_to_none=True)
+        model.set_unc_features_detached(False)
+        _, predicted_loss = model(xx, grid, return_predicted_loss=True)
+        predicted_loss.sum().backward()
+
+        self.assertIsNotNone(model.fc0.weight.grad)
+
+    def test_runtime_detach_blocks_loss_head_gradients_but_not_head_or_mean_gradients(self):
+        model, xx, grid = self._make_loss_prediction_fno(static_detach=False)
+        model.set_unc_features_detached(True)
+
+        _, predicted_loss = model(xx, grid, return_predicted_loss=True)
+        predicted_loss.sum().backward()
+
+        self.assertIsNone(model.fc0.weight.grad)
+        self.assertIsNotNone(model.unc_heads["block1"].fcs.fc_layers[0].weight.grad)
+        self.assertIsNotNone(model.unc_heads["last"].fc_layers[0].weight.grad)
+
+        model.zero_grad(set_to_none=True)
+        mean = model(xx, grid)
+        mean.sum().backward()
+
+        self.assertIsNotNone(model.fc0.weight.grad)
+        self.assertIsNone(model.unc_heads["block1"].fcs.fc_layers[0].weight.grad)
+        self.assertIsNone(model.unc_heads["last"].fc_layers[0].weight.grad)
+
+    def test_detach_schedule_rejects_unsupported_wrapper(self):
+        wrapper = DummyInternalWrapper()
+        model = make_mean_unc(
+            wrapper,
+            detach_unc_features_after_epoch=0,
+        )
+
+        with self.assertRaisesRegex(NotImplementedError, "detach schedule"):
+            model.train_single_epoch(current_epoch=0, total_epoch=0, num_epoch=1)
+
     def test_uncertainty_spec_builds_enabled_taps_only(self):
         cfg = OmegaConf.create({
             "enabled": True,
