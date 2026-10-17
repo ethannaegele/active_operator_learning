@@ -192,7 +192,9 @@ class MeanUnc(ProbModel):
                                                         t_idx=t_idx, 
                                                         return_features=return_features)
             sigma = torch.exp(log_sigma)
-            sigma[..., 0:self.initial_step, :] = 0.0
+            initial_mask = torch.ones_like(sigma)
+            initial_mask[..., :self.initial_step, :] = 0.0
+            sigma = sigma * initial_mask
             return pred, sigma
         elif self.unc_model_prediction_mode == "loss":
             pred, predicted_loss = self.unc_roll_out_predicted_loss(xx,
