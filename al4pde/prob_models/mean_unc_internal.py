@@ -212,6 +212,45 @@ class MeanUnc(ProbModel):
             return pred, predicted_loss_expanded
         else:
             raise ValueError("self.unc_model_prediction_mode is not recognized")
+
+
+    def expected_model_change(self, xx, grid, final_step, pde_param, t_idx, num_mc_samples, use_nll_loss):
+        if self.unc_model_prediction_mode == "loss":
+            raise NotImplementedError("Expected Model Change is not supported" \
+            "when self.unc_model_prediction_mode is 'loss'.")
+        pred, unc = self.unc_roll_out(xx, grid, final_step, pde_param, t_idx)
+        log_sigma = torch.log(unc.clamp_min(1e-8)) # [B, spatial, T, C]
+
+        # currently, prediction is denormalized, log_sigma is normalized.
+        # So, renormalize to put them on the same scale
+        if self.task_norm is not None:
+            pred_norm = self.task_norm.norm_traj(pred) 
+        else:
+            pred_norm = pred
+        
+        score = 0
+        for m in range(num_mc_samples):
+            simulated_error_norm = torch.normal(mean = torch.zeros_like(pred_norm), std = unc) # normalized scale
+            mc_yy_norm = (pred_norm + simulated_error_norm).detach() # y = pred + mean zero error, so estimates actual yy
+            if self.task_norm is not None:
+                mc_yy = self.task_norm.denorm_traj(mc_yy_norm)
+            else:
+                mc_yy = mc_yy_norm
+            # actual grad calculation step to estimate model change:
+            if use_nll_loss:
+                loss = self.gaussian_nll(pred_norm, mc_yy_norm, log_sigma, self.initial_step, reduction='mean')
+                params = [p for p in list(self.model_wrapper.model.parameters()) if p.requires_grad]
+            else:
+                params = [p for p in list(self.model_wrapper.model.parameters()) if p.requires_grad]
+                loss = self.loss(pred, mc_yy, initial_step=self.initial_step)
+            grads = torch.autograd.grad(loss, 
+                                        params,
+                                        retain_graph=m < num_mc_samples - 1,
+                                        allow_unused=True,
+                                        )
+            grad_norm = torch.sqrt(sum((g.detach().abs() ** 2).sum() for g in grads if g is not None))
+            score += grad_norm
+        return score / num_mc_samples # MC estimate of expected model change, shape [1]
         
 
     def roll_out(self, xx, grid, final_step, 
