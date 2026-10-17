@@ -10,7 +10,7 @@ import wandb
 import json
 from omegaconf import OmegaConf
 from torch.utils.data import DataLoader
-from scipy.stats import pearsonr, spearmanr
+from scipy.stats import pearsonr, spearmanr, t as student_t
 from matplotlib.markers import MarkerStyle
 
 
@@ -677,6 +677,132 @@ def al_comparison_plot(run_ids: list[str],
     
     if num_data is None:
         raise ValueError("Not currently implemented for num_data is None. Supply list of dataset sizes manually.")
+
+
+def al_comparison_plot_multi_seed(
+                       run_ids_by_label: dict[str, list[str]],
+                       file_name_factory: str,
+                       num_data: list[int],
+                       current_directory: str,
+                       out_dir: str,
+                       title: str,
+                       results_folder_name: str = "ckpt_eval_results",
+                       prefix: str = "ckpt_val/",
+                       metric: str = "RMSE",
+                       ylabel: str | None = None,
+                       confidence_level: float = 0.95,
+                       threshold: float | None = None,
+                       threshold_color: str = "red",
+                       threshold_width: float = 2.0,
+                       threshold_label: str = "Error Threshold",
+                       xticks: list[int] | None = None,
+                       xlim: tuple[float] | None = None,
+                       ylim: tuple[float] | None = None,
+                       show_plots: bool = True,
+                       ):
+    """Plot seed-averaged active-learning metrics with confidence bands.
+
+    ``run_ids_by_label`` maps each legend label to run IDs from independent
+    seeds. Each run must contain one JSON file per checkpoint under
+    ``results_folder_name/<run_id>`` following ``file_name_factory``. The
+    confidence band is a two-sided Student-t confidence interval for the mean
+    over the runs associated with each label, calculated separately at every
+    dataset size.
+
+    Returns a dictionary containing the per-label seed values, means, and
+    confidence-interval bounds so notebooks can inspect the plotted values.
+    """
+    if not run_ids_by_label:
+        raise ValueError("run_ids_by_label must contain at least one label.")
+    if num_data is None or len(num_data) == 0:
+        raise ValueError("num_data must contain at least one dataset size.")
+    if "{ckpt}" not in file_name_factory:
+        raise ValueError("file_name_factory must contain '{ckpt}'.")
+    if not file_name_factory.endswith(".json"):
+        raise ValueError("file_name_factory must include the .json extension.")
+    if "/" in metric:
+        raise ValueError("Do not include '/' or the logging prefix in metric.")
+    if not 0.0 < confidence_level < 1.0:
+        raise ValueError("confidence_level must be strictly between 0 and 1.")
+
+    os.makedirs(out_dir, exist_ok=True)
+    if ylabel is None:
+        ylabel = metric
+
+    num_evals = len(num_data)
+    labels = list(run_ids_by_label)
+    markers = ['o', 's', 'x', '+']
+    markers.extend(
+        marker
+        for marker in MarkerStyle.markers
+        if isinstance(marker, str) and marker not in {"", " ", "none", "None", ",", "s", ".", "o", "x", "+"}
+    )
+
+    plot_data = {}
+    plt.figure()
+    for idx, label in enumerate(labels):
+        run_ids = run_ids_by_label[label]
+        if not run_ids:
+            raise ValueError(f"Label '{label}' has no run IDs.")
+
+        seed_metrics = []
+        for run_id in run_ids:
+            run_metrics = []
+            folder_path = os.path.join(current_directory, results_folder_name, run_id)
+            for ckpt in range(num_evals):
+                file_path = os.path.join(folder_path, file_name_factory.format(ckpt=ckpt))
+                with open(file_path, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+                run_metrics.append(float(data[prefix + metric]))
+            seed_metrics.append(run_metrics)
+
+        seed_metrics = np.asarray(seed_metrics, dtype=float)
+        mean = seed_metrics.mean(axis=0)
+        if len(run_ids) == 1:
+            ci_half_width = np.zeros_like(mean)
+        else:
+            standard_error = seed_metrics.std(axis=0, ddof=1) / np.sqrt(len(run_ids))
+            critical_value = student_t.ppf((1.0 + confidence_level) / 2.0, len(run_ids) - 1)
+            ci_half_width = critical_value * standard_error
+
+        lower = mean - ci_half_width
+        upper = mean + ci_half_width
+        line, = plt.plot(num_data, mean, label=label, marker=markers[idx % len(markers)])
+        plt.fill_between(num_data, lower, upper, color=line.get_color(), alpha=0.2)
+        plot_data[label] = {
+            "run_ids": list(run_ids),
+            "seed_metrics": seed_metrics,
+            "mean": mean,
+            "ci_lower": lower,
+            "ci_upper": upper,
+        }
+
+    if threshold is not None:
+        plt.axhline(y=threshold,
+                    color=threshold_color,
+                    linestyle="--",
+                    linewidth=threshold_width,
+                    label=threshold_label)
+    if xticks is not None:
+        plt.xticks(xticks)
+    if xlim is not None:
+        plt.xlim(xlim)
+    if ylim is not None:
+        plt.ylim(ylim)
+    plt.xlabel("Training Set Size")
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+
+    labels_str = "_".join(labels)
+    output_path = os.path.join(out_dir, f"{labels_str}_{metric}_multi_seed_comparison_plot.png")
+    plt.savefig(output_path, dpi=200)
+    if show_plots:
+        plt.show()
+    plt.close()
+
+    return plot_data
     
 
         
