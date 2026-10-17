@@ -1,0 +1,20 @@
+_target_: al4pde.prob_models.mean_unc_ensemble.MeanUncEnsemble
+
+defaults:
+  - model_wrapper: fno_full_traj_mean_unc_internal
+
+num_models_ensemble: 2
+# Direct calls each member once for its mean trajectory. Ensemble disagreement,
+# rather than the internal uncertainty head, is returned by unc_roll_out.
+unc_roll_out_mode: direct
+adapt_unc_to_loss: true
+synchronized_training: false
+first_model_prediction: true
+
+# These control each member's internal head and training loss. They do not
+# determine the uncertainty returned by the outer ensemble in direct mode.
+unc_model_prediction_mode: unc
+loss_prediction_raw: false
+learning_loss_margin: 1.0
+learning_loss_lambda: 1.0
+detach_unc_features_after_epoch: null

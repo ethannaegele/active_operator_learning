@@ -97,6 +97,11 @@ def main(cfg: DictConfig):
                                     'unc': state_dict_to_cpu(prob_model.unc_model.state_dict())}
             elif target == "al4pde.prob_models.mean_unc_internal.MeanUnc":
                 prev_model_states = state_dict_to_cpu(prob_model.model_wrapper.model.state_dict())
+            elif target == "al4pde.prob_models.mean_unc_ensemble.MeanUncEnsemble":
+                prev_model_states = [
+                    state_dict_to_cpu(member.model_wrapper.model.state_dict())
+                    for member in prob_model.base_models
+                ]
             else:
                 raise ValueError(f"Invalid cfg.prob_model._target_: {target}")
             return prev_model_states

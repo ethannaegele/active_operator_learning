@@ -77,6 +77,11 @@ class MeanUnc(ProbModel):
         self.stats.append(UncAvg("unc"))
         self.stats.append(LossUncCorr("corr_unc_loss", self.loss))
 
+    @property
+    def predicts_full_trajectory(self):
+        """Whether the wrapped mean model predicts a complete trajectory."""
+        return getattr(self.model_wrapper, "predicts_full_trajectory", False)
+
 
     def uncertainty(self, xx, grid, pde_param=None, t_idx=None):
         "Output shape: [B, X, 1, C]"
@@ -769,10 +774,11 @@ class MeanUnc(ProbModel):
         self.optimizer.load_state_dict(state["optimizer"])
         self.scheduler.load_state_dict(state["scheduler"])
 
-def build_mean_unc(task, cfg):
+def build_mean_unc(task, cfg, name=None):
     if task.spatial_dim != 1:
         raise NotImplementedError("Only 1D spatial tasks supported currently.")
-    name = cfg.get("name", "mean_unc_model")
+    if name is None:
+        name = cfg.get("name", "mean_unc_model")
     model_wrapper = build_wrapper(task, cfg.model_wrapper, name=name + "/fno")
 
     return MeanUnc(model_wrapper,

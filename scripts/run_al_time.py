@@ -59,6 +59,16 @@ def main(cfg: DictConfig):
                 for k, v in state_dict.items()
             )
 
+        def ensemble_member_states(model):
+            """Extract warm-start states from plain or internal-MeanUnc members."""
+            states = []
+            for member in model.base_models:
+                if hasattr(member, "model_wrapper"):
+                    states.append(state_dict_to_cpu(member.model_wrapper.model.state_dict()))
+                else:
+                    states.append(state_dict_to_cpu(member.model.state_dict()))
+            return states
+
         if cfg.wandb.name is None:
             run.name = acq_strat.name + "_" + str(cfg.seed)
 
@@ -114,12 +124,12 @@ def main(cfg: DictConfig):
         if not cfg.restore_checkpoint or not cfg.warm_start_weights:
             prev_model_states = None
         else:
-            prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in eval_model.base_models]
+            prev_model_states = ensemble_member_states(eval_model)
         
         if not cfg.restore_checkpoint or not cfg.warm_start_weights_sel:
             prev_model_states_sel = None
         else:
-            prev_model_states_sel = [state_dict_to_cpu(m.model.state_dict()) for m in sel_model.base_models]
+            prev_model_states_sel = ensemble_member_states(sel_model)
 
 
         for al_iter in range(first_al_iter, cfg.num_al_iter):
@@ -144,10 +154,10 @@ def main(cfg: DictConfig):
 
 
             if cfg.warm_start_weights:
-                prev_model_states = [state_dict_to_cpu(m.model.state_dict()) for m in eval_model.base_models]
+                prev_model_states = ensemble_member_states(eval_model)
             
             if cfg.warm_start_weights_sel:
-                prev_model_states_sel = [state_dict_to_cpu(m.model.state_dict()) for m in sel_model.base_models]
+                prev_model_states_sel = ensemble_member_states(sel_model)
 
             wandb.log({"al/al_iter": al_iter, "al/num_data": len(sel_model.train_loader_full_traj.dataset),
                        "al/train_time": sel_train_time,
