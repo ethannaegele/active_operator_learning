@@ -59,6 +59,11 @@ class Ensemble(ProbModel):
                             m.validate(step_offset + i, prefix=prefix)
                         if vis and ((i > 0 and i % self.vis_period == 0) or i == num_epoch - 1):
                             m.visualize(step_offset + i)
+            # Member-zero validation above records that member's own uncertainty.
+            # Once every member has trained, also evaluate the outer ensemble so
+            # its uncertainty statistics use cross-member disagreement.
+            if num_epoch > 0 and not is_last:
+                self.validate(step_offset + num_epoch - 1, prefix="ensemble/")
             #self.validate(num_epoch + step_offset)
             #self.visualize(num_epoch + step_offset)
             return total_time

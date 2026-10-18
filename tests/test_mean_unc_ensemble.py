@@ -131,6 +131,31 @@ class MeanUncEnsembleTest(unittest.TestCase):
         self.assertIs(ensemble.base_models[0].init_states[0], states[0])
         self.assertIs(ensemble.base_models[1].init_states[0], states[1])
 
+    def test_non_final_training_validates_outer_ensemble_with_distinct_prefix(self):
+        ensemble = make_ensemble([torch.zeros(1, 2, 2, 1) for _ in range(2)])
+        with patch.object(ensemble, "validate") as validate:
+            ensemble.train_n_epoch(
+                al_iter=0,
+                num_epoch=1,
+                step_offset=10,
+                vis=False,
+            )
+
+        validate.assert_called_once_with(10, prefix="ensemble/")
+
+    def test_final_iteration_skips_outer_ensemble_validation(self):
+        ensemble = make_ensemble([torch.zeros(1, 2, 2, 1) for _ in range(2)])
+        with patch.object(ensemble, "validate") as validate:
+            ensemble.train_n_epoch(
+                al_iter=0,
+                num_epoch=1,
+                step_offset=10,
+                vis=False,
+                is_last=True,
+            )
+
+        validate.assert_not_called()
+
     def test_checkpoint_state_dict_includes_each_member(self):
         source_outputs = [
             torch.ones(1, 2, 2, 1),

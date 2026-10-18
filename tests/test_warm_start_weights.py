@@ -82,6 +82,9 @@ def make_warm_start_ensemble(num_members=2):
     ensemble.synchronized_training = False
     ensemble.val_period = 1
     ensemble.vis_period = 100
+    # These tests only exercise warm-state propagation; full validation is
+    # covered separately by the ensemble-specific tests.
+    ensemble.validate = lambda *args, **kwargs: None
     return ensemble
 
 
