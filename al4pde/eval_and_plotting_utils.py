@@ -691,6 +691,7 @@ def al_comparison_plot_multi_seed(
                        metric: str = "RMSE",
                        ylabel: str | None = None,
                        confidence_level: float = 0.95,
+                       show_confidence_band: bool = True,
                        threshold: float | None = None,
                        threshold_color: str = "red",
                        threshold_width: float = 2.0,
@@ -705,9 +706,9 @@ def al_comparison_plot_multi_seed(
     ``run_ids_by_label`` maps each legend label to run IDs from independent
     seeds. Each run must contain one JSON file per checkpoint under
     ``results_folder_name/<run_id>`` following ``file_name_factory``. The
-    confidence band is a two-sided Student-t confidence interval for the mean
-    over the runs associated with each label, calculated separately at every
-    dataset size.
+    When ``show_confidence_band`` is true, the plot includes a two-sided
+    Student-t confidence interval for the mean over the runs associated with
+    each label, calculated separately at every dataset size.
 
     Returns a dictionary containing the per-label seed values, means, and
     confidence-interval bounds so notebooks can inspect the plotted values.
@@ -768,7 +769,8 @@ def al_comparison_plot_multi_seed(
         lower = mean - ci_half_width
         upper = mean + ci_half_width
         line, = plt.plot(num_data, mean, label=label, marker=markers[idx % len(markers)])
-        plt.fill_between(num_data, lower, upper, color=line.get_color(), alpha=0.2)
+        if show_confidence_band:
+            plt.fill_between(num_data, lower, upper, color=line.get_color(), alpha=0.2)
         plot_data[label] = {
             "run_ids": list(run_ids),
             "seed_metrics": seed_metrics,
