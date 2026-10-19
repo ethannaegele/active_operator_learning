@@ -1,4 +1,5 @@
 import os
+import gc
 import matplotlib
 #matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -488,6 +489,49 @@ def error_unc_correlation(run_id: str,
             'spearman_uncertainty_error_correlation': spearman}
 
 
+def _error_unc_correlation_from_loaded_model(prob_model, test_loader):
+    """Compute normal error/uncertainty correlation without reloading a model."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    all_uncs = []
+    all_sq_errs = []
+    for xx, yy, grid, param, t_idx in test_loader:
+        xx = xx.to(device)
+        yy = yy.to(device)
+        grid = grid.to(device)
+        param = param.to(device)
+        t_idx = t_idx.to(device)
+
+        with torch.no_grad():
+            pred, unc = prob_model.unc_roll_out(
+                xx,
+                grid,
+                yy.shape[-2],
+                pde_param=param,
+                t_idx=t_idx,
+            )
+            sq_err = (pred - yy) ** 2
+            sq_err = sq_err[..., prob_model.initial_step:, :]
+            unc_eval = unc[..., prob_model.initial_step:, :]
+            all_sq_errs.append(sq_err.reshape(sq_err.shape[0], -1).mean(dim=1).cpu())
+            all_uncs.append(unc_eval.reshape(unc_eval.shape[0], -1).mean(dim=1).cpu())
+
+    all_uncs = torch.cat(all_uncs).reshape(-1)
+    all_sq_errs = torch.cat(all_sq_errs).reshape(-1)
+    pearson = pearsonr(all_uncs.numpy(), all_sq_errs.numpy()).statistic
+    spearman = spearmanr(all_uncs.numpy(), all_sq_errs.numpy()).statistic
+    print("pearson: ", pearson)
+    print("spearman: ", spearman)
+    return {'pearson_uncertainty_error_correlation': pearson,
+            'spearman_uncertainty_error_correlation': spearman}
+
+
+def _release_eval_memory():
+    """Release evaluation-only Python objects and unused CUDA allocations."""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 def save_final_eval_metrics(run_id: str, 
                             overrides: list[str],
                             test_folder: str, # folder for test or val set data, eg data/data/Burgers/val
@@ -536,14 +580,17 @@ def save_final_eval_metrics(run_id: str,
         time_step_name=time_step_name
     )
 
-    correlation_metrics = error_unc_correlation(run_id,
-                                                overrides,
-                                                test_folder,
-                                                current_directory,
-                                                checkpoint_name=checkpoint_name,
-                                                config_name=config_name,
-                                                load_eval_model=load_eval_model,
-                                                load_sel_model=load_sel_model)
+    if load_sel_model:
+        correlation_metrics = error_unc_correlation(run_id,
+                                                    overrides,
+                                                    test_folder,
+                                                    current_directory,
+                                                    checkpoint_name=checkpoint_name,
+                                                    config_name=config_name,
+                                                    load_eval_model=load_eval_model,
+                                                    load_sel_model=True)
+    else:
+        correlation_metrics = _error_unc_correlation_from_loaded_model(prob_model, test_loader)
     correlation_metrics = {prefix + k: make_json_safe(v) for k, v in correlation_metrics.items()}
     wandb.log(correlation_metrics | {prefix + time_step_name: al_iter})
 
@@ -569,6 +616,8 @@ def save_final_eval_metrics(run_id: str,
     wandb.save(save_path_meta, base_path=save_dir)
 
     wandb.finish()
+    del prob_model, test_data, test_loader, task, cfg
+    _release_eval_memory()
 
 
 def al_comparison_plot(run_ids: list[str], 
