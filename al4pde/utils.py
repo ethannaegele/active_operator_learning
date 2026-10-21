@@ -4,6 +4,55 @@ import glob
 import numpy as np
 import random
 import re
+from pathlib import Path
+
+import yaml
+
+
+def _unwrap_wandb_config_value(value):
+    """Recursively remove W&B's ``{"value": ...}`` export wrapper."""
+    if isinstance(value, dict):
+        if set(value) == {"value"}:
+            return _unwrap_wandb_config_value(value["value"])
+        return {
+            key: _unwrap_wandb_config_value(child)
+            for key, child in value.items()
+            if key != "_wandb"
+        }
+    if isinstance(value, list):
+        return [_unwrap_wandb_config_value(child) for child in value]
+    return value
+
+
+def convert_wandb_config(source_path, destination_path=None):
+    """Convert a W&B-exported config into a standalone Hydra config.
+
+    W&B exports every top-level setting as ``{"value": ...}`` and records
+    machine-specific metadata under ``_wandb``.  The converted YAML contains
+    the resolved experiment settings only, so it can be passed directly to a
+    Hydra entry point via ``--config-path`` and ``--config-name``.
+
+    When ``destination_path`` is omitted, the source YAML is rewritten in
+    place.  This is intentionally destructive for the raw W&B metadata.
+    """
+    source_path = Path(source_path)
+    destination_path = Path(destination_path) if destination_path else source_path
+
+    with source_path.open() as file:
+        exported_config = yaml.safe_load(file)
+    if not isinstance(exported_config, dict):
+        raise ValueError(f"Expected a mapping in W&B config: {source_path}")
+
+    config = _unwrap_wandb_config_value(exported_config)
+    config.setdefault("hydra", {
+        "output_subdir": None,
+        "run": {"dir": "."},
+    })
+
+    with destination_path.open("w") as file:
+        yaml.safe_dump(config, file, sort_keys=False)
+
+    return destination_path
 
 def bxtc_to_btcx(traj):
     # pdebench to pdearena

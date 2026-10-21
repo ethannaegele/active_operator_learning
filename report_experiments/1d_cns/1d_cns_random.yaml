@@ -1,326 +1,211 @@
-_wandb:
-    value:
-        cli_version: 0.28.0
-        e:
-            moefvt1bsiz2uftfzul4ufdj2jux75vy:
-                cpu_count: 40
-                cpu_count_logical: 40
-                cudaVersion: "13.0"
-                disk:
-                    /:
-                        total: "21464350720"
-                        used: "15998111744"
-                email: enaegele500@gmail.com
-                executable: /home/enaegele/.conda/envs/al-env-gpu2/bin/python
-                git:
-                    commit: d197a534ad6bfbbeab052c29d9b0a69038561d4c
-                    remote: git@github.com:ethannaegele/active_operator_learning.git
-                gpu: Tesla V100-PCIE-16GB
-                gpu_count: 1
-                gpu_nvidia:
-                    - architecture: Volta
-                      cudaCores: 5120
-                      memoryTotal: "17179869184"
-                      name: Tesla V100-PCIE-16GB
-                      uuid: GPU-53560986-9553-8919-415d-8e6f81d72561
-                host: gl1012.arc-ts.umich.edu
-                memory:
-                    total: "200811753472"
-                os: Linux-4.18.0-553.146.1.el8_10.x86_64-x86_64-with-glibc2.28
-                program: <python with no main file>
-                python: CPython 3.10.20
-                root: /gpfs/accounts/tewaria_root/tewaria0/enaegele/active_operator_learning
-                slurm:
-                    cluster_name: greatlakes
-                    conf: /var/spool/slurmd.spool/conf-cache/slurm.conf
-                    cpus_on_node: "1"
-                    cpus_per_task: "1"
-                    export_env: ALL
-                    get_user_env: "1"
-                    gpus_on_node: "1"
-                    gpus_per_node: "1"
-                    gtids: "0"
-                    job_account: tewaria0
-                    job_cpus_per_node: "1"
-                    job_end_time: "1792403701"
-                    job_gid: "114460654"
-                    job_gpus: "1"
-                    job_id: "64269244"
-                    job_name: ondemand/sys/dashboard/sys/arcts_jupyter_notebook
-                    job_nodelist: gl1012
-                    job_num_nodes: "1"
-                    job_partition: gpu
-                    job_qos: normal
-                    job_start_time: "1792396501"
-                    job_uid: "114460654"
-                    job_user: enaegele
-                    jobid: "64269244"
-                    localid: "0"
-                    mem_per_node: "12288"
-                    nnodes: "1"
-                    nodeid: "0"
-                    nodelist: gl1012
-                    oom_kill_step: "0"
-                    prio_process: "0"
-                    procid: "0"
-                    script_context: prolog_task
-                    spank__slurm_spank_option_lua_gpu_cmode: exclusive
-                    submit_dir: /var/www/ood/apps/sys/dashboard
-                    submit_host: gl-ood1.arc-ts.umich.edu
-                    task_pid: "2984611"
-                    tasks_per_node: "1"
-                    topology_addr: gl1012
-                    topology_addr_pattern: node
-                    tres_per_task: cpu=1
-                startedAt: "2026-10-19T08:27:53.911835Z"
-                writerId: moefvt1bsiz2uftfzul4ufdj2jux75vy
-        m: []
-        python_version: 3.10.20
-        t:
-            "1":
-                - 1
-                - 11
-                - 12
-                - 49
-                - 50
-                - 105
-            "2":
-                - 1
-                - 11
-                - 12
-                - 49
-                - 50
-                - 105
-            "3":
-                - 2
-                - 3
-                - 5
-                - 13
-                - 14
-                - 62
-            "4": 3.10.20
-            "5": 0.28.0
-            "6": 4.57.3
-            "8":
-                - 1
-            "12": 0.28.0
-            "13": linux-x86_64
 acquisition:
-    value:
-        _target_: al4pde.acquisition.random.Random
-        batch_size: ${task.data_gen.batch_size}
-        data_schedule:
-            _target_: al4pde.acquisition.data_schedule.LinearSchedule
-            first_batch_num: ${task.data_gen.num_initial_batches}
-        unc_eval_mode: mean
-        unc_num_rollout_steps_rel: 1
-checkpoint_file_name:
-    value: latest.pt
-checkpoint_id:
-    value: c1papzmi
-num_al_iter:
-    value: 15
-num_epochs:
-    value: 500
+  _target_: al4pde.acquisition.random.Random
+  batch_size: ${task.data_gen.batch_size}
+  data_schedule:
+    _target_: al4pde.acquisition.data_schedule.LinearSchedule
+    first_batch_num: ${task.data_gen.num_initial_batches}
+  unc_eval_mode: mean
+  unc_num_rollout_steps_rel: 1
+checkpoint_file_name: latest.pt
+checkpoint_id: c1papzmi
+num_al_iter: 15
+num_epochs: 500
 prob_model:
-    value:
-        _target_: al4pde.prob_models.mean_unc_internal.MeanUnc
-        first_model_prediction: true
-        learning_loss_lambda: 1
-        learning_loss_margin: 1
-        loss_prediction_raw: false
-        model_wrapper:
-            _target_: al4pde.models.fno_wrapper.FNOFullTrajectoryWrapper
-            add_one_step: false
-            batch_size: 32
-            block_grad: false
-            encode_pde_param_log: false
-            loss:
-                _target_: al4pde.models.loss.MSE
-                normalize_channels: false
-            max_grad_norm: 50
-            model:
-                if_conditional: true
-                modes: 12
-                num_channels: 1
-                padding: 2
-                padding_mode: zeros
-                time_modes: 8
-                traj_len: 41
-                uncertainty:
-                    clamp_log_sigma: false
-                    detach_features: false
-                    enabled: true
-                    max_log_sigma: 2
-                    min_log_sigma: -8
-                    taps:
-                        - block_idx: 0
-                          enabled: false
-                          head:
-                            hidden_channels: 256
-                            in_channels: ${prob_model.model_wrapper.model.width}
-                            make_channel_first_input: false
-                            num_layers: 1
-                            out_channels: 128
-                            use_end_activation: true
-                          name: block0
-                        - block_idx: 1
-                          enabled: true
-                          head:
-                            hidden_channels: 256
-                            in_channels: ${prob_model.model_wrapper.model.width}
-                            make_channel_first_input: false
-                            num_layers: 1
-                            out_channels: 32
-                            use_end_activation: true
-                          name: block1
-                        - block_idx: 2
-                          enabled: true
-                          head:
-                            hidden_channels: 256
-                            in_channels: ${prob_model.model_wrapper.model.width}
-                            make_channel_first_input: false
-                            num_layers: 1
-                            out_channels: 32
-                            use_end_activation: true
-                          name: block2
-                        - block_idx: 3
-                          enabled: true
-                          head:
-                            hidden_channels: 256
-                            in_channels: ${prob_model.model_wrapper.model.width}
-                            make_channel_first_input: false
-                            num_layers: 1
-                            out_channels: 32
-                            use_end_activation: true
-                          name: block3
-                        - block_idx: 4
-                          enabled: true
-                          head:
-                            hidden_channels: 256
-                            in_channels: ${prob_model.model_wrapper.model.width}
-                            make_channel_first_input: false
-                            num_layers: 1
-                            out_channels: 32
-                            use_end_activation: true
-                          name: block4
-                        - block_idx: 5
-                          enabled: true
-                          head:
-                            hidden_channels: 256
-                            in_channels: 128
-                            make_channel_first_input: true
-                            num_layers: 1
-                            out_channels: 32
-                            use_end_activation: true
-                          name: block5
-                        - block_idx: 6
-                          enabled: false
-                          head:
-                            hidden_channels: 256
-                            in_channels: ${prob_model.model_wrapper.model.num_channels}
-                            make_channel_first_input: true
-                            num_layers: 1
-                            out_channels: 128
-                            use_end_activation: true
-                          name: after_last_decoder
-                        - block_idx: 7
-                          enabled: true
-                          head:
-                            hidden_channels: 256
-                            make_channel_first_input: false
-                            num_layers: 1
-                            out_channels: ${prob_model.model_wrapper.model.num_channels}
-                            use_end_activation: false
-                          name: last
-                width: 64
-            noise: 0.001
-            noise_mode: constant
-            norm_mode: first
-            num_train_steps: 40
-            num_workers: 0
-            optimizer:
-                _target_: torch.optim.Adam
-                lr: 0.001
-                weight_decay: 0
-            scheduler:
-                _target_: pdearena.lr_scheduler.LinearWarmupCosineAnnealingLR
-                eta_min: 1e-05
-                max_epochs: ${num_epochs}
-                warmup_epochs: 0
-                warmup_start_lr: 1e-08
-            step_batch: -1
-            t_train: 201
-            time_coord_mode: abs_time
-            time_coord_norm_mode: null
-            training_type: full_trajectory
-            val_period: 20
-            vis_period: 1000
-        num_models_ensemble: 1
-        synchronized_training: false
-        unc_model_prediction_mode: unc
-restore_checkpoint:
-    value: false
-seed:
-    value: 2
-start_al_iter:
-    value: 0
+  _target_: al4pde.prob_models.mean_unc_internal.MeanUnc
+  first_model_prediction: true
+  learning_loss_lambda: 1
+  learning_loss_margin: 1
+  loss_prediction_raw: false
+  model_wrapper:
+    _target_: al4pde.models.fno_wrapper.FNOFullTrajectoryWrapper
+    add_one_step: false
+    batch_size: 32
+    block_grad: false
+    encode_pde_param_log: false
+    loss:
+      _target_: al4pde.models.loss.MSE
+      normalize_channels: false
+    max_grad_norm: 50
+    model:
+      if_conditional: true
+      modes: 12
+      num_channels: 1
+      padding: 2
+      padding_mode: zeros
+      time_modes: 8
+      traj_len: 41
+      uncertainty:
+        clamp_log_sigma: false
+        detach_features: false
+        enabled: true
+        max_log_sigma: 2
+        min_log_sigma: -8
+        taps:
+        - block_idx: 0
+          enabled: false
+          head:
+            hidden_channels: 256
+            in_channels: ${prob_model.model_wrapper.model.width}
+            make_channel_first_input: false
+            num_layers: 1
+            out_channels: 128
+            use_end_activation: true
+          name: block0
+        - block_idx: 1
+          enabled: true
+          head:
+            hidden_channels: 256
+            in_channels: ${prob_model.model_wrapper.model.width}
+            make_channel_first_input: false
+            num_layers: 1
+            out_channels: 32
+            use_end_activation: true
+          name: block1
+        - block_idx: 2
+          enabled: true
+          head:
+            hidden_channels: 256
+            in_channels: ${prob_model.model_wrapper.model.width}
+            make_channel_first_input: false
+            num_layers: 1
+            out_channels: 32
+            use_end_activation: true
+          name: block2
+        - block_idx: 3
+          enabled: true
+          head:
+            hidden_channels: 256
+            in_channels: ${prob_model.model_wrapper.model.width}
+            make_channel_first_input: false
+            num_layers: 1
+            out_channels: 32
+            use_end_activation: true
+          name: block3
+        - block_idx: 4
+          enabled: true
+          head:
+            hidden_channels: 256
+            in_channels: ${prob_model.model_wrapper.model.width}
+            make_channel_first_input: false
+            num_layers: 1
+            out_channels: 32
+            use_end_activation: true
+          name: block4
+        - block_idx: 5
+          enabled: true
+          head:
+            hidden_channels: 256
+            in_channels: 128
+            make_channel_first_input: true
+            num_layers: 1
+            out_channels: 32
+            use_end_activation: true
+          name: block5
+        - block_idx: 6
+          enabled: false
+          head:
+            hidden_channels: 256
+            in_channels: ${prob_model.model_wrapper.model.num_channels}
+            make_channel_first_input: true
+            num_layers: 1
+            out_channels: 128
+            use_end_activation: true
+          name: after_last_decoder
+        - block_idx: 7
+          enabled: true
+          head:
+            hidden_channels: 256
+            make_channel_first_input: false
+            num_layers: 1
+            out_channels: ${prob_model.model_wrapper.model.num_channels}
+            use_end_activation: false
+          name: last
+      width: 64
+    noise: 0.001
+    noise_mode: constant
+    norm_mode: first
+    num_train_steps: 40
+    num_workers: 0
+    optimizer:
+      _target_: torch.optim.Adam
+      lr: 0.001
+      weight_decay: 0
+    scheduler:
+      _target_: pdearena.lr_scheduler.LinearWarmupCosineAnnealingLR
+      eta_min: 1e-05
+      max_epochs: ${num_epochs}
+      warmup_epochs: 0
+      warmup_start_lr: 1e-08
+    step_batch: -1
+    t_train: 201
+    time_coord_mode: abs_time
+    time_coord_norm_mode: null
+    training_type: full_trajectory
+    val_period: 20
+    vis_period: 1000
+  num_models_ensemble: 1
+  synchronized_training: false
+  unc_model_prediction_mode: unc
+restore_checkpoint: false
+seed: 2
+start_al_iter: 0
 task:
-    value:
-        _target_: al4pde.tasks.task.Task
-        data_gen:
-            batch_size: 40
-            num_initial_batches: 5
-            num_test_batches: 1024
-        data_path: data/data
-        ic_gen:
-            _target_: al4pde.tasks.ic_gen.ic_gen_1d_ns_rand.ICGen1DNSRand
-            init_field_type: rand
-            k_tot: 3
-            num_choice_k: 2
-            nx: 512
-            ny: 1
-            nz: 1
-            xL: -1
-            xR: 1
-            yL: -1
-            yR: 1
-            zL: -1
-            zR: 1
-        initial_step: 1
-        param_gen:
-            _target_: al4pde.tasks.param_gen.PDEParamGenerator
-            log_scale:
-                - true
-            max_val:
-                - 0.1
-            min_val:
-                - 0.0001
-        reduced_batch: 1
-        reduced_resolution: 4
-        reduced_resolution_t: 5
-        run_save_path: data/runs
-        save_in_reduced_res: false
-        sim:
-            _target_: al4pde.tasks.sim.cfd.CFDSim
-            CFL: 0.3
-            bc: trans
-            dt: 0.01
-            fin_time: 2
-            gamma: 1.6666666666666667
-            if_second_order: 1
-            ini_time: 0
-            p_floor: 0.0001
-            pde_name: CFD_1D_RAND
-            same_eta_zeta: true
-            show_steps: 100
-            spatial_dim: 1
-        skip_initial_steps: 0
-        use_test: false
+  _target_: al4pde.tasks.task.Task
+  data_gen:
+    batch_size: 40
+    num_initial_batches: 5
+    num_test_batches: 1024
+  data_path: data/data
+  ic_gen:
+    _target_: al4pde.tasks.ic_gen.ic_gen_1d_ns_rand.ICGen1DNSRand
+    init_field_type: rand
+    k_tot: 3
+    num_choice_k: 2
+    nx: 512
+    ny: 1
+    nz: 1
+    xL: -1
+    xR: 1
+    yL: -1
+    yR: 1
+    zL: -1
+    zR: 1
+  initial_step: 1
+  param_gen:
+    _target_: al4pde.tasks.param_gen.PDEParamGenerator
+    log_scale:
+    - true
+    max_val:
+    - 0.1
+    min_val:
+    - 0.0001
+  reduced_batch: 1
+  reduced_resolution: 4
+  reduced_resolution_t: 5
+  run_save_path: data/runs
+  save_in_reduced_res: false
+  sim:
+    _target_: al4pde.tasks.sim.cfd.CFDSim
+    CFL: 0.3
+    bc: trans
+    dt: 0.01
+    fin_time: 2
+    gamma: 1.6666666666666667
+    if_second_order: 1
+    ini_time: 0
+    p_floor: 0.0001
+    pde_name: CFD_1D_RAND
+    same_eta_zeta: true
+    show_steps: 100
+    spatial_dim: 1
+  skip_initial_steps: 0
+  use_test: false
 wandb:
-    value:
-        group: 1dcfd
-        name: 1d_cns_fno_full_traj_random_acq_mean_unc_internal_15_iter_500_epoch_1_lyr_32_out_32_batch_warm_start_false_seed_${seed}
-        project: al4pde
-warm_start_weights:
-    value: false
+  group: 1dcfd
+  name: 1d_cns_fno_full_traj_random_acq_mean_unc_internal_15_iter_500_epoch_1_lyr_32_out_32_batch_warm_start_false_seed_${seed}
+  project: al4pde
+warm_start_weights: false
+hydra:
+  output_subdir: null
+  run:
+    dir: .
