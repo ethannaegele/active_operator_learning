@@ -1,26 +1,19 @@
 # AL4PDE: A Benchmark for Active Learning for Neural PDE Solvers 
 
-This repository contains the code for the paper **[Active Learning for Neural PDE Solvers](https://arxiv.org/abs/2408.01536)** (AL4PDE), introducing a modular and extensible active learning benchmark for time-dependent parametric PDE solving and comprises active learning algorithms, numerical solvers of parametric PDEs, and state-of-the-art neural PDE solvers.
+This repository contains the code associated with the Bridge report. The code is based off the AL4PDE repository from the paper **[Active Learning for Neural PDE Solvers](https://arxiv.org/abs/2408.01536)** (AL4PDE), introducing a modular and extensible active learning benchmark for time-dependent parametric PDE solving and comprises active learning algorithms, numerical solvers of parametric PDEs, and state-of-the-art neural PDE solvers.
 
 ![Active Learn Architecture](./active-learning-pipeline.png)
 
 
 -------------------------------
 
-## Updates
-
-<img src="https://iclr.cc/static/core/img/ICLR-logo.svg" width="96" height="16"/> [**Thirteenth International Conference on Learning Representations**](https://iclr.cc/Conferences/2025).
-
-- Accepted at the [NeurIPS'24 workshop, **D3S3: Data-driven and Differentiable Simulations, Surrogates, and Solvers**](https://d3s3workshop.github.io/).
-
--------------------------------
 
 
 # Installation 
 
 ```shell
 conda config --set channel_priority flexible
-conda env create -n al4pde -f environment.yml
+conda env create -n al4pde -f environment_actual.yml
 ```
 
 
@@ -62,7 +55,7 @@ pip install "cliffordlayers @ git+https://github.com/microsoft/cliffordlayers"
 
 # Running Experiments
 
-Before running any experiments, the ground truth data has to be generated using gen_data. The option task.use_test=True lets the evaluation switch to the test data for the final evaluation.
+Before running any experiments, the ground truth data has to be generated using gen_data. THIS IS ESPECIALLY IMPORTANT FOR GENERATING VALIDATION AND TEST SETS. The option task.use_test=True lets the evaluation switch to the test data for the final evaluation.
 ```shell
 # add your user info for wandb
 wandb login    # authenticate using your API key by grabbing it from https://wandb.ai/authorize
@@ -75,14 +68,31 @@ python -m scripts.al_submitit --m +experiment=ks  +experiment/sub_exp=power
 ```
 
 ## Paper experiments
-All the different experiments from the paper have their own config file. 
+All the different experiments from the AL4PDE paper have their own config file. 
 To reproduce the main experiments:
 ```shell
 # Or experiment=ce_no_forcing/burgers/2dcfd
 # Or sub_exp=random/ll_mean(LCMD)/maxdist_ll_mean(Coreset)/topk
 python -m scripts.al_submitit --m +experiment=ks  +experiment/sub_exp=power seed=0,1,2,3,4
 ```
-For Burgers, seeds 0-9 were used.
+
+## Report Experiments
+
+The config files associated with the experiments in the Bridge report are found in the folder report_experiments. 
+
+From the repository root, run
+```shell
+python -m scripts.al_submitit --config-path ../report_experiments/<task> --config-name <experiment_name>
+```
+
+For example:
+
+```shell
+python -m scripts.al_submitit \
+  --config-path ../report_experiments/ce \
+  --config-name ce_mean_unc_internal
+```
+
 ## Configuring Experiments
 We use Hydra to configure all experiments. The 'config' folder contains the modular configuration,
 which represents the code structure. 
@@ -123,21 +133,10 @@ AL algorithms:
   - Generates the next batch of samples using a **Model** and **Task**
 
 
-
-
-## How do I add a new model?
-A new model can be added by deriving a subclass from the **Model** base class. In the simplest case, this can be done by implementing the call to the pytorch module in the **forward()** method (see **ArenaWrapper**). Alternatively, a different training procedure can be implemented by overwriting **train_single_epoch()**.
-
-## How do I add a new AL algorithm?
-A new AL algorithm can be implemented by overwriting the **BatchSelection** class from the **acquisition** package. For pool-based methods, the class **PoolBased** can be overwritten, where a specific method can implement the **select_next()** method, which just has to return the index of the samples to select from the pool. 
-## How do I add a new PDE?
-A new subclass of **Simulator** has to be added for a new PDE, and the **n_step_sim()** method should be overwritten. In general, the **PDEParamGenerator** class can be configured to produce any simple, (log-) uniform distribution of PDE parameters. Implement a subclass of the **ICGenerator** class for a new IC generator. Here, the **_initialize_ic_params()** and **generate_initial_conditions()** methods have to be overwritten. All randomness should be contained in **_initialize_ic_params()** (for example, sample the random amplitude in **_initialize_ic_params()**, and then transform them deterministically in **generate_initial_conditions()** to the true IC).
-
 ----------------------
 
-# Publication and Citations 
-
-If you find our project useful, please cite using:
+# Citation
+The original AL4PDE paper is found here:
 
 <details>
 <summary>
