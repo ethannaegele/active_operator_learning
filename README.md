@@ -55,7 +55,9 @@ pip install "cliffordlayers @ git+https://github.com/microsoft/cliffordlayers"
 
 # Running Experiments
 
-Before running any experiments, the ground truth data has to be generated using gen_data. THIS IS ESPECIALLY IMPORTANT FOR GENERATING VALIDATION AND TEST SETS. The option task.use_test=True lets the evaluation switch to the test data for the final evaluation.
+Before running any experiments, the ground truth data has to be generated using gen_data. THIS IS ESPECIALLY IMPORTANT FOR GENERATING VALIDATION AND TEST SETS. The option task.use_test=True lets the evaluation switch to the test data for the final evaluation. 
+
+WE DID NOT INCLUDE THE DATASETS USED IN THE BRIDGE REPORT DIRECTLY IN THIS GITHUB REPO DUE TO THEIR SIZE. PLEASE USE THE DATA GENERATION INSTRUCTIONS BELOW.
 ```shell
 # add your user info for wandb
 wandb login    # authenticate using your API key by grabbing it from https://wandb.ai/authorize
