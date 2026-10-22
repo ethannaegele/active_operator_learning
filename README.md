@@ -1,4 +1,4 @@
-# AL4PDE: A Benchmark for Active Learning for Neural PDE Solvers 
+# Active Operator Learning 
 
 This repository contains the code associated with the Bridge report. The code is based off the AL4PDE repository from the paper **[Active Learning for Neural PDE Solvers](https://arxiv.org/abs/2408.01536)** (AL4PDE), introducing a modular and extensible active learning benchmark for time-dependent parametric PDE solving and comprises active learning algorithms, numerical solvers of parametric PDEs, and state-of-the-art neural PDE solvers.
 
@@ -94,6 +94,22 @@ python -m scripts.al_submitit \
   --config-path ../report_experiments/ce \
   --config-name ce_mean_unc_internal
 ```
+
+## Reproducing results
+
+To reproduce the plots found in the report, run the code in AL_multiseed_plotting.ipynb. The repository contains a folder (ckpt_eval_results) of model evaluation results on test data for each experiment used to produce the results used in the report. The plotting function searches in this folder, finds the appropriate training run id, and obtains the test set metrics from each active learning iteration. The metrics from each iteration are stored in lightweight json files. The relevant metrics are averaged across all runs associated with a given method.
+
+## End-to-end reproduction of results
+
+To reproduce the results end-to-end, one would have to:
+- install the environment
+- log in to wandb
+- generate the data for Burgers, CE, and 1D CNS
+- run the experimental configs in the report_experiments folder (using the instructions above)
+    - for Burgers and CE, run all experiments with seeds 0,1,2,3.
+    - for 1D CNS, run all experiments with seeds 0,1,2
+- Generate the json files containing test data metrics using code in the AL_multiseed_loading.ipynb notebook (replace the given run ids with your actual run ids)
+- Generate the plots using the code in the AL_multiseed_plotting.ipynb notebook (replace the given run ids with your actual run ids)
 
 ## Configuring Experiments
 We use Hydra to configure all experiments. The 'config' folder contains the modular configuration,
