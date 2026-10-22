@@ -1,0 +1,25 @@
+{
+  "checkpoint_name": "2.pt",
+  "test_folder": "data/data/Burgers/test",
+  "prefix": "ckpt_test/",
+  "overrides": [
+    "+experiment=burgers",
+    "+experiment/sub_exp=power",
+    "acquisition/data_schedule=linear",
+    "prob_model/model_wrapper=fno_full_traj",
+    "prob_model.model_wrapper.training_type=full_trajectory",
+    "prob_model.unc_roll_out_mode=direct",
+    "prob_model.model_wrapper.num_train_steps=40",
+    "prob_model.model_wrapper.model.traj_len=41",
+    "prob_model.model_wrapper.optimizer.lr=1e-3",
+    "task.data_gen.num_initial_batches=1",
+    "task.data_gen.batch_size=200",
+    "num_al_iter=10",
+    "num_epochs=400",
+    "prob_model.model_wrapper.batch_size=32",
+    "wandb.name=burgers_full_traj_power_acq_10_iter_400_epochs_32_batch_warm_start_false_seed_${seed}",
+    "warm_start_weights=False",
+    "seed=3",
+    "hydra=base"
+  ]
+}

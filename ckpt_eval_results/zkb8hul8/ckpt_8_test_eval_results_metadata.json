@@ -1,0 +1,27 @@
+{
+  "checkpoint_name": "8.pt",
+  "test_folder": "data/data/Burgers/test",
+  "prefix": "ckpt_test/",
+  "overrides": [
+    "+experiment=burgers",
+    "+experiment/sub_exp=emc_power",
+    "acquisition/data_schedule=linear",
+    "acquisition.num_mc_samples=6",
+    "prob_model/model_wrapper=fno_full_traj",
+    "prob_model.model_wrapper.training_type=full_trajectory",
+    "prob_model=mean_unc",
+    "prob_model/unc_model=full_traj_1d_time_indep",
+    "prob_model.model_wrapper.num_train_steps=40",
+    "prob_model.model_wrapper.model.traj_len=41",
+    "prob_model.model_wrapper.optimizer.lr=1e-3",
+    "task.data_gen.num_initial_batches=4",
+    "task.data_gen.batch_size=50",
+    "num_al_iter=10",
+    "num_epochs=400",
+    "prob_model.model_wrapper.batch_size=32",
+    "wandb.name=burgers_full_traj_mean_unc_time_indep_emc_power_acq_10_iter_400_epoch_32_batch_warm_start_false_seed_${seed}",
+    "warm_start_weights=False",
+    "seed=2",
+    "hydra=base"
+  ]
+}

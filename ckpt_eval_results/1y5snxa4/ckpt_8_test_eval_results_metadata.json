@@ -1,0 +1,31 @@
+{
+  "checkpoint_name": "8.pt",
+  "test_folder": "data/data/CFD_1D_RAND/test",
+  "prefix": "ckpt_test/",
+  "overrides": [
+    "+experiment=1dcfd",
+    "+experiment/sub_exp=random",
+    "acquisition/data_schedule=linear",
+    "prob_model=mean_unc_internal",
+    "prob_model/model_wrapper=fno_full_traj_mean_unc_internal",
+    "prob_model.model_wrapper.training_type=full_trajectory",
+    "prob_model.model_wrapper.optimizer.lr=1e-3",
+    "prob_model.model_wrapper.num_train_steps=40",
+    "prob_model.model_wrapper.model.traj_len=41",
+    "prob_model.model_wrapper.model.uncertainty.detach_features=False",
+    "prob_model.model_wrapper.model.uncertainty.taps.1.head.out_channels=32",
+    "prob_model.model_wrapper.model.uncertainty.taps.2.head.out_channels=32",
+    "prob_model.model_wrapper.model.uncertainty.taps.3.head.out_channels=32",
+    "prob_model.model_wrapper.model.uncertainty.taps.4.head.out_channels=32",
+    "prob_model.model_wrapper.model.uncertainty.taps.5.head.out_channels=32",
+    "task.data_gen.num_initial_batches=5",
+    "task.data_gen.batch_size=40",
+    "num_al_iter=15",
+    "num_epochs=500",
+    "prob_model.model_wrapper.batch_size=32",
+    "wandb.name=1d_cns_fno_full_traj_random_acq_mean_unc_internal_15_iter_500_epoch_1_lyr_32_out_32_batch_warm_start_false_seed_${seed}",
+    "warm_start_weights=False",
+    "seed=1",
+    "hydra=base"
+  ]
+}
